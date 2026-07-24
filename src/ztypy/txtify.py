@@ -134,13 +134,25 @@ def add_subparser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     parser = subparsers.add_parser(
-        "txtify", help="Generate output.txt from Typst notes"
+        "txtify",
+        help="Convert Typst notes into an adjacency text file",
+        description=(
+            "Read a directory of Typst slipbox notes and produce an adjacency-list "
+            "or backlink text file."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
     )
-    parser.add_argument("directory", help="Directory containing .typ files")
+    parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
+    parser.add_argument(
+        "directory",
+        metavar="DIR",
+        help="Directory containing .typ files",
+    )
     parser.add_argument(
         "-b",
         "--backlinks",
         action="store_true",
-        help="Generate output.txt using backlinks instead of outgoing links",
+        help="Generate backlinks instead of outgoing links",
     )
     parser.set_defaults(func=lambda args: run(args.directory, args.backlinks))

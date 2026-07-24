@@ -149,7 +149,9 @@ def add_subparser(
             "Typst Zettelkasten notes."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
     )
+    parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
 
     parser.add_argument(
         "layout_file",
@@ -162,7 +164,7 @@ def add_subparser(
         "--output-dir",
         metavar="DIR",
         default="output",
-        help="Output directory for generated .typ files (default: output)",
+        help="Output directory for generated .typ files (default: %(default)s)",
     )
 
     parser.set_defaults(func=lambda args: run(args.layout_file, args.output_dir))

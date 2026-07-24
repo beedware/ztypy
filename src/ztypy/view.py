@@ -181,9 +181,20 @@ def add_subparser(
 ) -> None:
     parser = subparsers.add_parser(
         "view",
-        help="Visualize adjacency txt as an interactive graph",
+        help="Visualize an adjacency text file as an interactive graph",
+        description=(
+            "Parse an adjacency-list text file and serve an interactive graph "
+            "visualization in the browser."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
     )
-    parser.add_argument("txt_file", help="Path to adjacency-list .txt file")
+    parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
+    parser.add_argument(
+        "txt_file",
+        metavar="FILE",
+        help="Path to adjacency-list text file",
+    )
     parser.add_argument(
         "-p",
         "--port",

@@ -8,8 +8,10 @@ from ztypy import slipify, txtify, view
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ztypy",
-        description="CLI for slipbox tools: txtify, view, slipify.",
+        description="CLI for slipbox tools: txtify, view, slipify",
+        add_help=False,
     )
+    parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
 
     txtify.add_subparser(subparsers)
