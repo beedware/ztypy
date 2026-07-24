@@ -7,7 +7,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, Dict
 
 
 def parse_adjacency_layout(
@@ -34,11 +34,24 @@ def parse_adjacency_layout(
     return sorted(nodes), sorted(edges)
 
 
+def populate_edge_payload(edges: list[tuple[str, str]]) -> list[dict[str, str]]:
+    payload = {}
+    for src, dst in edges:
+        if (dst, src) in payload:
+            payload[(dst, src)]["arrows"] = "to, from"
+        else:
+            payload[(src, dst)] = {
+                "from": src,
+                "to": dst,
+                "arrows": "to",
+            }
+    return list(payload.values())
+
 def build_html(
     graph_title: str, node_titles: List[str], edges: List[Tuple[str, str]]
 ) -> str:
     node_payload = [{"id": title, "label": title} for title in node_titles]
-    edge_payload = [{"from": src, "to": dst, "arrows": "to"} for src, dst in edges]
+    edge_payload = populate_edge_payload(edges)
 
     return f"""<!doctype html>
 <html lang=\"en\">
