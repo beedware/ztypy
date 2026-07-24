@@ -142,10 +142,27 @@ def add_subparser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     parser = subparsers.add_parser(
-        "slipify", help="Generate Typst slipbox files from adjacency txt"
+        "slipify",
+        help="Generate Typst slipbox files from an adjacency layout",
+        description=(
+            "Convert an adjacency-list text file into a collection of "
+            "Typst Zettelkasten notes."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("layout_file", help="Adjacency-list text file")
+
     parser.add_argument(
-        "--output-dir", default="output", help="Directory for generated .typ files"
+        "layout_file",
+        metavar="LAYOUT",
+        help="Adjacency-list text file",
     )
+
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        metavar="DIR",
+        default="output",
+        help="Output directory for generated .typ files (default: output)",
+    )
+
     parser.set_defaults(func=lambda args: run(args.layout_file, args.output_dir))
