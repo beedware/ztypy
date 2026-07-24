@@ -12,7 +12,9 @@ requires-python = ">=3.10"
 ztypy = "ztypy.cli:main"
 
 [dependency-groups]
-dev = []
+dev = [
+    "debugpy>=1.8.21",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
