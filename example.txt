@@ -45,6 +45,9 @@ Cyber Security
     Authentication
     Malware
 
+Malware
+    Cyber Security
+
 Artificial Intelligence
     Machine Learning
     Neural Networks
