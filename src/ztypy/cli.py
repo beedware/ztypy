@@ -10,7 +10,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="ztypy",
         description="CLI for slipbox tools: txtify, view, slipify.",
     )
-    subparsers = parser.add_subparsers(dest="command")
+    subparsers = parser.add_subparsers(dest="command", metavar="<command>")
 
     txtify.add_subparser(subparsers)
     view.add_subparser(subparsers)

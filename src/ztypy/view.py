@@ -7,7 +7,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List, Set, Tuple, Dict
+from typing import Dict, List, Set, Tuple
 
 
 def parse_adjacency_layout(
@@ -46,6 +46,7 @@ def populate_edge_payload(edges: list[tuple[str, str]]) -> list[dict[str, str]]:
                 "arrows": "to",
             }
     return list(payload.values())
+
 
 def build_html(
     graph_title: str, node_titles: List[str], edges: List[Tuple[str, str]]
@@ -183,8 +184,18 @@ def add_subparser(
         help="Visualize adjacency txt as an interactive graph",
     )
     parser.add_argument("txt_file", help="Path to adjacency-list .txt file")
-    parser.add_argument("--port", type=int, default=8000, help="Port for local server")
     parser.add_argument(
-        "--no-open", action="store_true", help="Do not auto-open browser"
+        "-p",
+        "--port",
+        type=int,
+        default=8000,
+        metavar="PORT",
+        help="Port for local server (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-n",
+        "--no-open",
+        action="store_true",
+        help="Do not auto-open browser",
     )
     parser.set_defaults(func=lambda args: run(args.txt_file, args.port, args.no_open))
