@@ -47,5 +47,3 @@ Then launch the script with debugpy listening:
 ```bash
 uv run python -m debugpy --listen 5678 --wait-for-client -m ztypy --help
 ```
-
-Select **"Debugpy: Attach"** in the Run & Debug panel and press **F5**.
