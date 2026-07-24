@@ -15,7 +15,7 @@ TITLE_RE = re.compile(r'^#let\s+title\s*=\s*"(.*)"\s*$')
 class Node:
     note_id: str
     title: str
-    children_ids: List[str]
+    links: List[str]
 
 
 def extract_title(content: str, file_path: Path) -> str:
@@ -26,7 +26,7 @@ def extract_title(content: str, file_path: Path) -> str:
     raise ValueError(f"Missing '#let title = \"...\"' in {file_path}")
 
 
-def extract_children_ids(content: str) -> List[str]:
+def extract_links(content: str) -> List[str]:
     lines = content.splitlines()
     links_index = None
 
@@ -38,7 +38,7 @@ def extract_children_ids(content: str) -> List[str]:
     if links_index is None:
         return []
 
-    children: List[str] = []
+    links: List[str] = []
     for line in lines[links_index + 1 :]:
         stripped = line.strip()
         if not stripped:
@@ -48,9 +48,9 @@ def extract_children_ids(content: str) -> List[str]:
         if stripped.startswith("- "):
             link_id = stripped[2:].strip()
             if re.fullmatch(r"\d{14}", link_id):
-                children.append(link_id)
+                links.append(link_id)
 
-    return children
+    return links
 
 
 def load_nodes_from_directory(typ_dir: Path) -> Dict[str, Node]:
@@ -70,8 +70,8 @@ def load_nodes_from_directory(typ_dir: Path) -> Dict[str, Node]:
         note_id = match.group(1)
         content = path.read_text(encoding="utf-8")
         title = extract_title(content, path)
-        children_ids = extract_children_ids(content)
-        nodes[note_id] = Node(note_id=note_id, title=title, children_ids=children_ids)
+        links = extract_links(content)
+        nodes[note_id] = Node(note_id=note_id, title=title, links=links)
 
     if invalid_names:
         invalid_list = "\n".join(f"- {name}" for name in invalid_names)
@@ -90,10 +90,10 @@ def build_adjacency_text(nodes: Dict[str, Node]) -> str:
     blocks: List[str] = []
     for node in ordered_nodes:
         block_lines = [node.title]
-        for child_id in sorted(set(node.children_ids)):
-            child_title = id_to_title.get(child_id)
-            if child_title is not None:
-                block_lines.append(f"    {child_title}")
+        for link in sorted(set(node.links)):
+            link_title = id_to_title.get(link)
+            if link_title is not None:
+                block_lines.append(f"    {link_title}")
         blocks.append("\n".join(block_lines))
 
     return "\n\n".join(blocks) + "\n"
