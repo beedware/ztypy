@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from src import view
+from ztypy import view
 
 
 class _FakeServer:
@@ -41,16 +41,16 @@ class ViewTests(unittest.TestCase):
 
     def test_serve_html_calls_browser_open_when_enabled(self) -> None:
         with (
-            patch("src.view.ThreadingHTTPServer", _FakeServer),
-            patch("src.view.webbrowser.open") as open_mock,
+            patch("ztypy.view.ThreadingHTTPServer", _FakeServer),
+            patch("ztypy.view.webbrowser.open") as open_mock,
         ):
             view.serve_html("<html></html>", 8000, True)
             self.assertTrue(open_mock.called)
 
     def test_serve_html_does_not_call_browser_open_when_disabled(self) -> None:
         with (
-            patch("src.view.ThreadingHTTPServer", _FakeServer),
-            patch("src.view.webbrowser.open") as open_mock,
+            patch("ztypy.view.ThreadingHTTPServer", _FakeServer),
+            patch("ztypy.view.webbrowser.open") as open_mock,
         ):
             view.serve_html("<html></html>", 8000, False)
             self.assertFalse(open_mock.called)
@@ -63,7 +63,7 @@ class ViewTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "layout.txt"
             path.write_text("A\n  B\n", encoding="utf-8")
-            with patch("src.view.serve_html") as serve_mock:
+            with patch("ztypy.view.serve_html") as serve_mock:
                 view.run(str(path), 9000, True)
                 self.assertTrue(serve_mock.called)
 

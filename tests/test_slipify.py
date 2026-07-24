@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from src import slipify
+from ztypy import slipify
 
 
 class SlipifyTests(unittest.TestCase):
@@ -72,7 +72,7 @@ class SlipifyTests(unittest.TestCase):
             layout = root / "layout.txt"
             layout.write_text("A\n  B\n", encoding="utf-8")
 
-            with patch("src.slipify.datetime") as mocked_datetime:
+            with patch("ztypy.slipify.datetime") as mocked_datetime:
                 from datetime import datetime as _DT
 
                 mocked_datetime.now.return_value = _DT(2026, 1, 1, 1, 1, 1)

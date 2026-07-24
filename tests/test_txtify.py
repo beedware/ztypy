@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src import txtify
+from ztypy import txtify
 
 
 class TxtifyTests(unittest.TestCase):

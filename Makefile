@@ -1,19 +1,17 @@
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
 TARGET ?= ztypy
-INSTALL_PATH := $(BINDIR)/$(TARGET)
-PROJECT_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-PYTHON ?= python3
 
-.PHONY: install uninstall
+.PHONY: install uninstall run test
 
 install:
-	@mkdir -p "$(BINDIR)"
-	@printf '%s\n' '#!/usr/bin/env bash' > "$(INSTALL_PATH)"
-	@printf '%s\n' '$(PYTHON) "$(PROJECT_ROOT)/main.py" "$$@"' >> "$(INSTALL_PATH)"
-	@chmod +x "$(INSTALL_PATH)"
-	@echo "Installed $(TARGET) to $(INSTALL_PATH)"
+	uv tool install --reinstall .
 
 uninstall:
-	@rm -f "$(INSTALL_PATH)"
-	@echo "Removed $(INSTALL_PATH)"
+	uv tool uninstall $(TARGET)
+
+run:
+	uv run ztypy $(ARGS)
+
+test:
+	uv run python -m unittest discover -s tests -v

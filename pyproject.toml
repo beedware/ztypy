@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ztypy"
+version = "0.1.0"
+description = "Python CLI for zettelkasten system using Typst"
+requires-python = ">=3.10"
+
+[project.scripts]
+ztypy = "ztypy.cli:main"
+
+[dependency-groups]
+dev = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import argparse
 
-from src import slipify, txtify, view
+from ztypy import slipify, txtify, view
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="main.py",
+        prog="ztypy",
         description="CLI for slipbox tools: txtify, view, slipify.",
     )
     subparsers = parser.add_subparsers(dest="command")
