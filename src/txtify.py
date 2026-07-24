@@ -16,6 +16,7 @@ class Node:
     note_id: str
     title: str
     links: List[str]
+    backlinks: List[str]
 
 
 def extract_title(content: str, file_path: Path) -> str:
@@ -71,7 +72,7 @@ def load_nodes_from_directory(typ_dir: Path) -> Dict[str, Node]:
         content = path.read_text(encoding="utf-8")
         title = extract_title(content, path)
         links = extract_links(content)
-        nodes[note_id] = Node(note_id=note_id, title=title, links=links)
+        nodes[note_id] = Node(note_id=note_id, title=title, links=links, backlinks=[])
 
     if invalid_names:
         invalid_list = "\n".join(f"- {name}" for name in invalid_names)
