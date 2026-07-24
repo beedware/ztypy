@@ -7,7 +7,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List, Set, Tuple
+from typing import List, Set, Tuple
 
 
 def parse_adjacency_layout(
