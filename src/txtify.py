@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
-
 FILENAME_RE = re.compile(r"^(\d{14})\.typ$")
 TITLE_RE = re.compile(r'^#let\s+title\s*=\s*"(.*)"\s*$')
 
@@ -54,6 +53,13 @@ def extract_links(content: str) -> List[str]:
     return links
 
 
+def populate_backlinks(nodes: Dict[str, Node]) -> None:
+    for node in nodes.values():
+        for link in node.links:
+            if link in nodes:
+                nodes[link].backlinks.append(node.note_id)
+
+
 def load_nodes_from_directory(typ_dir: Path) -> Dict[str, Node]:
     typ_files = sorted(typ_dir.glob("*.typ"))
     if not typ_files:
@@ -84,33 +90,43 @@ def load_nodes_from_directory(typ_dir: Path) -> Dict[str, Node]:
     return nodes
 
 
-def build_adjacency_text(nodes: Dict[str, Node]) -> str:
+def build_adjacency_text(nodes: Dict[str, Node], backlinks: bool = False) -> str:
     id_to_title = {node.note_id: node.title for node in nodes.values()}
     ordered_nodes = [nodes[note_id] for note_id in sorted(nodes)]
 
     blocks: List[str] = []
+
     for node in ordered_nodes:
         block_lines = [node.title]
-        for link in sorted(set(node.links)):
+
+        edges = node.backlinks if backlinks else node.links
+
+        for link in sorted(set(edges)):
             link_title = id_to_title.get(link)
             if link_title is not None:
                 block_lines.append(f"    {link_title}")
+
         blocks.append("\n".join(block_lines))
 
     return "\n\n".join(blocks) + "\n"
 
 
-def run(directory: str) -> Path:
+def run(directory: str, backlinks: bool = False) -> Path:
     typ_dir = Path(directory).resolve()
     if not typ_dir.exists() or not typ_dir.is_dir():
         raise FileNotFoundError(f"Directory not found: {typ_dir}")
 
     nodes = load_nodes_from_directory(typ_dir)
-    adjacency_text = build_adjacency_text(nodes)
+    populate_backlinks(nodes)
+
+    adjacency_text = build_adjacency_text(nodes, backlinks=backlinks)
 
     output_path = typ_dir / "output.txt"
     output_path.write_text(adjacency_text, encoding="utf-8")
-    print(f"Wrote adjacency list to {output_path}")
+
+    mode = "backlinks" if backlinks else "adjacency list"
+    print(f"Wrote {mode} to {output_path}")
+
     return output_path
 
 
@@ -121,4 +137,10 @@ def add_subparser(
         "txtify", help="Generate output.txt from Typst notes"
     )
     parser.add_argument("directory", help="Directory containing .typ files")
-    parser.set_defaults(func=lambda args: run(args.directory))
+    parser.add_argument(
+        "-b",
+        "--backlinks",
+        action="store_true",
+        help="Generate output.txt using backlinks instead of outgoing links",
+    )
+    parser.set_defaults(func=lambda args: run(args.directory, args.backlinks))
