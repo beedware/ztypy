@@ -81,6 +81,23 @@ class TxtifyTests(unittest.TestCase):
             path.write_text('#let title = "Good"\n= Links\n', encoding="utf-8")
             self.assertEqual(len(txtify.load_nodes_from_directory(Path(temp_dir))), 1)
 
+    def test_missing_links_section_has_no_links_but_keeps_backlinks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            root.joinpath("20260101010101.typ").write_text(
+                '#let title = "Source"\n= Links\n- 20260101010102\n',
+                encoding="utf-8",
+            )
+            root.joinpath("20260101010102.typ").write_text(
+                '#let title = "Target"\n', encoding="utf-8"
+            )
+
+            nodes = txtify.load_nodes_from_directory(root)
+            txtify.populate_backlinks(nodes)
+
+            self.assertEqual(nodes["20260101010102"].links, [])
+            self.assertEqual(nodes["20260101010102"].backlinks, ["20260101010101"])
+
     def test_build_adjacency_text_skips_unknown_children(self) -> None:
         nodes = {
             "20260101010101": txtify.Node(

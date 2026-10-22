@@ -28,6 +28,16 @@ class ViewTests(unittest.TestCase):
             path.write_text("Root\n  Child\n", encoding="utf-8")
             self.assertEqual(view.parse_adjacency_layout(path)[1], [("Root", "Child")])
 
+    def test_parse_adjacency_layout_preserves_order_and_deduplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "x.txt"
+            path.write_text("Root\n  Child\n  Child\nOther\n", encoding="utf-8")
+
+            self.assertEqual(
+                view.parse_adjacency_layout(path),
+                (["Root", "Child", "Other"], [("Root", "Child")]),
+            )
+
     def test_parse_adjacency_layout_raises_for_child_without_parent(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "x.txt"

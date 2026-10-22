@@ -12,8 +12,9 @@ from tempfile import TemporaryDirectory
 def parse_adjacency_layout(
     layout_path: Path,
 ) -> tuple[list[str], list[tuple[str, str]]]:
-    nodes: set[str] = set()
-    edges: set[tuple[str, str]] = set()
+    # Dict keys retain insertion order while providing constant-time deduplication.
+    nodes: dict[str, None] = {}
+    edges: dict[tuple[str, str], None] = {}
     current_parent: str | None = None
 
     for raw in layout_path.read_text(encoding="utf-8").splitlines():
@@ -24,13 +25,13 @@ def parse_adjacency_layout(
             child = raw.strip()
             if current_parent is None:
                 raise ValueError(f"Found child without parent: {raw!r}")
-            nodes.add(child)
-            edges.add((current_parent, child))
+            nodes[child] = None
+            edges[(current_parent, child)] = None
         else:
             current_parent = raw.strip()
-            nodes.add(current_parent)
+            nodes[current_parent] = None
 
-    return sorted(nodes), sorted(edges)
+    return list(nodes), list(edges)
 
 
 def populate_edge_payload(edges: list[tuple[str, str]]) -> list[dict[str, str]]:

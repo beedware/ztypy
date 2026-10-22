@@ -60,7 +60,7 @@ def populate_backlinks(nodes: dict[str, Node]) -> None:
 
 
 def load_nodes_from_directory(typ_dir: Path) -> dict[str, Node]:
-    typ_files = sorted(typ_dir.glob("*.typ"))
+    typ_files = list(typ_dir.glob("*.typ"))
     if not typ_files:
         raise ValueError(f"No .typ files found in {typ_dir}")
 
@@ -91,16 +91,18 @@ def load_nodes_from_directory(typ_dir: Path) -> dict[str, Node]:
 
 def build_adjacency_text(nodes: dict[str, Node], backlinks: bool = False) -> str:
     id_to_title = {node.note_id: node.title for node in nodes.values()}
-    ordered_nodes = [nodes[note_id] for note_id in sorted(nodes)]
-
     blocks: list[str] = []
 
-    for node in ordered_nodes:
+    for node in nodes.values():
         block_lines = [node.title]
 
         edges = node.backlinks if backlinks else node.links
 
-        for link in sorted(set(edges)):
+        seen_links: set[str] = set()
+        for link in edges:
+            if link in seen_links:
+                continue
+            seen_links.add(link)
             link_title = id_to_title.get(link)
             if link_title is not None:
                 block_lines.append(f"    {link_title}")
