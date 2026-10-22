@@ -62,6 +62,7 @@ class LiveTests(unittest.TestCase):
                         "if (focusRoot !== null)",
                         "node.label.setAttribute('visibility', 'visible')",
                         "node.vx *= 0.6; node.vy *= 0.6", "energy *= 0.97",
+                        "(distance - 180) * 0.012", "const force = 4500 /",
                     ):
                         self.assertIn(interaction, page)
                     with urlopen(url + "/graph") as response:

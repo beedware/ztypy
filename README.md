@@ -23,9 +23,9 @@ uv run ztypy generate layout.txt --output-dir output
 `http://127.0.0.1:8000/`. The browser checks for changes every second; no
 intermediate text file or external JavaScript service is needed. The graph fills
 the browser window below the controls and resizes with it. The graph uses
-force-based layout that settles quickly: scroll to zoom, drag the background
-to pan, drag notes to rearrange them, and hover to reveal a note's title and
-its connected notes'
+force-based layout with room between nodes that settles quickly: scroll to zoom,
+drag the background to pan, drag notes to rearrange them, and hover to reveal
+a note's title and its connected notes'
 titles at any zoom level. Titles are otherwise hidden. Arrows point from
 each note to the notes it links to; reciprocal links share one line with arrows
 at both ends. Nodes have stable colors based on their

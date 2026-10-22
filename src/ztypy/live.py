@@ -265,8 +265,8 @@ function draw(nodes, edges) {
       const anchor = neighbor && positions.get(neighbor[0] === node.id ? neighbor[1] : neighbor[0]);
       const angle = index * 2.4;
       positions.set(node.id, {
-        id: node.id, x: (anchor?.x ?? graph.viewBox.baseVal.width / 2) + 70 * Math.cos(angle),
-        y: (anchor?.y ?? graph.viewBox.baseVal.height / 2) + 70 * Math.sin(angle), vx: 0, vy: 0,
+        id: node.id, x: (anchor?.x ?? graph.viewBox.baseVal.width / 2) + 110 * Math.cos(angle),
+        y: (anchor?.y ?? graph.viewBox.baseVal.height / 2) + 110 * Math.sin(angle), vx: 0, vy: 0,
       });
     }
   }
@@ -328,7 +328,7 @@ function draw(nodes, edges) {
   if (!initialFit && nodes.length) {
     initialFit = true;
     fitGraph();
-    refitFrames = 45;
+    refitFrames = 75;
   } else {
     transform();
   }
@@ -416,7 +416,7 @@ function animate() {
         const b = nodes[j];
         const dx = a.x - b.x, dy = a.y - b.y;
         const distance2 = Math.max(dx * dx + dy * dy, 100);
-        const force = 3000 / (distance2 * Math.sqrt(distance2));
+        const force = 4500 / (distance2 * Math.sqrt(distance2));
         a.vx += dx * force; a.vy += dy * force;
         b.vx -= dx * force; b.vy -= dy * force;
       }
@@ -425,7 +425,7 @@ function animate() {
       const a = positions.get(link.from), b = positions.get(link.to);
       const dx = b.x - a.x, dy = b.y - a.y;
       const distance = Math.max(Math.hypot(dx, dy), 1);
-      const force = (distance - 120) * 0.012;
+      const force = (distance - 180) * 0.012;
       a.vx += dx / distance * force; a.vy += dy / distance * force;
       b.vx -= dx / distance * force; b.vy -= dy / distance * force;
     }
