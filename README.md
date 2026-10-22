@@ -34,8 +34,12 @@ high-contrast titles centered beneath them when hovered. The initial view fits
 the graph. Search title words directly and prefix tag searches with `#`. For
 example, `title_word #tag_one #tag_two` matches a title and both tags from a
 note's colon-delimited tag line (for example, `:tag_one:tag_two:`). Matching is
-case-insensitive and fuzzy (letters in order); all terms must match. The
-arrow button at the bottom right toggles arrowheads (the lines stay visible);
+case-insensitive and fuzzy (letters in order); all terms must match. Matching
+nodes show their titles while searching. Clicking a node clears the search,
+focuses its subgraph, and opens it in Neovim if it has a file. The tag icon
+at the bottom right toggles tag nodes, connected to the notes carrying those
+tags by undirected lines. Tag nodes can also be focused, but do not open a file.
+The arrow button at the bottom right toggles arrowheads (the lines stay visible);
 its icon is crossed out when arrows are off.
 `live` defaults to the system color scheme; use `--theme light` or
 `--theme dark` to override it:
@@ -46,14 +50,15 @@ uv run ztypy live slipbox --theme dark
 
 The light and dark graph palettes use the Modus colors from the Alacritty theme
 files; in system mode they follow your browser's color scheme. Clicking a note
-(or focusing it and pressing Enter) opens it in Neovim and shows that note with
-its linked children and backlinks. The generation slider at the bottom left
+(or focusing it and pressing Enter) shows its linked children and backlinks.
+The generation slider at the bottom left
 controls how many steps to follow in either direction (0–10). Click a visible
 node to focus on it instead. Focused subgraphs show all their titles without
 hover highlighting. The backlink button at the bottom right includes incoming
-links by default; turn it off to explore only outgoing links. Use the expand
-icon beside it to restore the full graph and normal hover behavior. The icons
-are bundled Lucide SVGs; see `src/ztypy/LUCIDE-LICENSE.txt`.
+links by default for both hover highlights and subgraphs; turn it off to see
+only outgoing links. Use the expand icon beside it to restore the full graph
+and normal hover behavior. The icons are bundled Lucide SVGs; see
+`src/ztypy/LUCIDE-LICENSE.txt`.
 
 To enable note clicks, start Neovim with a local server socket, then pass the
 same address to `live`:

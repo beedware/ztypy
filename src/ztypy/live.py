@@ -95,6 +95,7 @@ body { background: var(--background); color: var(--text); }
   height: 2.5rem;
   padding: 0;
 }
+#tags[aria-pressed="true"] { outline: 2px solid var(--edge); outline-offset: -2px; }
 #generation-control {
   position: fixed;
   left: 1rem;
@@ -111,6 +112,7 @@ body { background: var(--background); color: var(--text); }
 <div id="graph-actions">
   <button id="direction" type="button" aria-label="Edge directions" title="Hide arrowheads" aria-pressed="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12H22"/><path d="M18 8L22 12L18 16"/><path id="direction-slash" d="M22 2 2 22" display="none"/></svg></button>
   <button id="backlinks" type="button" aria-label="Include backlinks" title="Hide backlinks" aria-pressed="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 18v-2a4 4 0 0 0-4-4H4"/><path d="m9 17-5-5 5-5"/><path id="backlinks-slash" d="M22 2 2 22" display="none"/></svg></button>
+  <button id="tags" type="button" aria-label="Tag nodes" title="Show tags as nodes" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z"/><path d="M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193"/><circle cx="10.5" cy="6.5" r=".5" fill="currentColor"/></svg></button>
   <button id="expand" type="button" aria-label="Show full graph" title="Show full graph" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 15 6 6"/><path d="m15 9 6-6"/><path d="M21 16v5h-5"/><path d="M21 8V3h-5"/><path d="M3 16v5h5"/><path d="m3 21 6-6"/><path d="M3 8V3h5"/><path d="M9 9 3 3"/></svg></button>
 </div>
 <span id="generation-control" hidden><label for="generations">Generations:</label><input id="generations" type="range" min="0" max="10" value="1"><output id="generation-count">1</output></span>
@@ -122,6 +124,7 @@ const directionButton = document.getElementById('direction');
 const directionSlash = document.getElementById('direction-slash');
 const backlinksButton = document.getElementById('backlinks');
 const backlinksSlash = document.getElementById('backlinks-slash');
+const tagsButton = document.getElementById('tags');
 const expandButton = document.getElementById('expand');
 const generationControl = document.getElementById('generation-control');
 const generations = document.getElementById('generations');
@@ -153,6 +156,7 @@ let refitFrames = 0;
 let focusRoot = null;
 let showDirection = true;
 let includeBacklinks = true;
+let showTagNodes = false;
 
 // Keep the graph sized to the space below search.
 document.body.style.margin = '0';
@@ -182,9 +186,10 @@ function element(tag, attributes) {
   return node;
 }
 
-function colorForFile(id) {
+function colorForNode(node) {
   let hash = 2166136261;
-  for (const character of `${id}.typ`) {
+  const name = node.kind === 'tag' ? node.title : `${node.id}.typ`;
+  for (const character of name) {
     hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
   }
   return `var(--node-${hash % 12})`;
@@ -204,12 +209,13 @@ async function openNote(id) {
 }
 
 function selectNode(id) {
+  search.value = '';
   focusRoot = id;
   hovered = null;
   updateFocusControls();
   filterGraph();
   resizeGraph();
-  openNote(id);
+  if (!id.startsWith('tag:')) openNote(id);
 }
 
 function updateFocusControls() {
@@ -232,6 +238,15 @@ backlinksButton.addEventListener('click', () => {
   backlinksButton.title = includeBacklinks ? 'Hide backlinks' : 'Show backlinks';
   backlinksSlash.setAttribute('display', includeBacklinks ? 'none' : 'inline');
   if (focusRoot !== null) filterGraph();
+  else highlight();
+});
+
+tagsButton.addEventListener('click', () => {
+  showTagNodes = !showTagNodes;
+  tagsButton.setAttribute('aria-pressed', String(showTagNodes));
+  tagsButton.title = showTagNodes ? 'Hide tags as nodes' : 'Show tags as nodes';
+  filterGraph();
+  resizeGraph();
 });
 
 expandButton.addEventListener('click', () => {
@@ -330,7 +345,7 @@ graph.addEventListener('pointerup', event => {
 graph.addEventListener('pointercancel', () => { drag = null; });
 
 function highlight() {
-  if (focusRoot !== null) {
+  if (focusRoot !== null || search.value.trim()) {
     for (const link of links) link.path.setAttribute('opacity', 1);
     for (const node of positions.values()) {
       node.group.setAttribute('opacity', 1);
@@ -341,8 +356,10 @@ function highlight() {
   const connected = new Set([hovered]);
   for (const link of links) {
     if (link.from === hovered) connected.add(link.to);
-    if (link.to === hovered) connected.add(link.from);
-    link.path.setAttribute('opacity', !hovered || link.from === hovered || link.to === hovered ? 1 : 0.15);
+    if ((includeBacklinks || link.bidirectional) && link.to === hovered) connected.add(link.from);
+    const visible = link.from === hovered ||
+      ((includeBacklinks || link.bidirectional) && link.to === hovered);
+    link.path.setAttribute('opacity', !hovered || visible ? 1 : 0.15);
   }
   for (const node of positions.values()) {
     node.group.setAttribute('opacity', !hovered || connected.has(node.id) ? 1 : 0.3);
@@ -353,15 +370,21 @@ function highlight() {
 
 function updateArrows() {
   for (const link of links) {
-    link.path.setAttribute('marker-end', showDirection ? 'url(#link-arrow)' : 'none');
+    link.path.setAttribute('marker-end', showDirection && !link.tagLink ? 'url(#link-arrow)' : 'none');
     link.path.setAttribute('marker-start',
-      showDirection && link.bidirectional ? 'url(#link-arrow)' : 'none');
+      showDirection && link.bidirectional && !link.tagLink ? 'url(#link-arrow)' : 'none');
   }
 }
 
-function draw(nodes, edges) {
+function draw(nodes, edges, allEdges) {
   const degree = new Map();
-  for (const [from, to] of allData.edges) {
+  const seenTagLinks = new Set();
+  for (const [from, to] of allEdges) {
+    if (from.startsWith('tag:') || to.startsWith('tag:')) {
+      const key = [from, to].sort().join('|');
+      if (seenTagLinks.has(key)) continue;
+      seenTagLinks.add(key);
+    }
     degree.set(from, (degree.get(from) ?? 0) + 1);
     if (to !== from) degree.set(to, (degree.get(to) ?? 0) + 1);
   }
@@ -392,7 +415,10 @@ function draw(nodes, edges) {
     const bidirectional = from !== to && pairs.has(`${to}:${from}`);
     const path = element('path', {fill: 'none', stroke: 'var(--edge)'});
     linksLayer.append(path);
-    links.push({from, to, path, bidirectional});
+    links.push({
+      from, to, path, bidirectional,
+      tagLink: from.startsWith('tag:') || to.startsWith('tag:'),
+    });
   }
   updateArrows();
   for (const node of nodes) {
@@ -400,9 +426,9 @@ function draw(nodes, edges) {
     position.radius = Math.min(36, 8 + 4 * Math.sqrt(degree.get(node.id) ?? 0));
     const group = element('g', {
       'data-id': node.id, tabindex: '0', role: 'button',
-      'aria-label': `Open and focus on ${node.title}`,
+      'aria-label': `${node.kind === 'tag' ? 'Focus on' : 'Open and focus on'} ${node.title}`,
     });
-    group.append(element('circle', {r: position.radius, fill: colorForFile(node.id)}));
+    group.append(element('circle', {r: position.radius, fill: colorForNode(node)}));
     const label = element('text', {
       x: 0, y: position.radius + 18, 'text-anchor': 'middle',
       fill: 'var(--label)', stroke: 'var(--halo)', 'stroke-width': 4,
@@ -487,9 +513,24 @@ function matchesSearch(node, query) {
   });
 }
 
+function graphWithTags() {
+  if (!showTagNodes) return allData;
+  const tags = new Map();
+  const edges = [...allData.edges];
+  for (const note of allData.nodes) {
+    for (const tag of new Set(note.tags)) {
+      const id = `tag:${tag}`;
+      if (!tags.has(id)) tags.set(id, {id, title: `#${tag}`, tags: [tag], kind: 'tag'});
+      edges.push([note.id, id], [id, note.id]);
+    }
+  }
+  return {nodes: [...allData.nodes, ...tags.values()], edges};
+}
+
 function filterGraph(fit = true) {
   let focusLost = false;
-  if (focusRoot !== null && !allData.nodes.some(node => node.id === focusRoot)) {
+  const data = graphWithTags();
+  if (focusRoot !== null && !data.nodes.some(node => node.id === focusRoot)) {
     focusRoot = null;
     hovered = null;
     updateFocusControls();
@@ -498,12 +539,12 @@ function filterGraph(fit = true) {
   const input = search.value.trim().toLowerCase();
   const query = input.split(/\s+/).filter(Boolean);
   const focused = focusRoot === null ? null
-    : neighborhood(focusRoot, Number(generations.value), allData.edges, includeBacklinks);
-  const nodes = allData.nodes.filter(node =>
+    : neighborhood(focusRoot, Number(generations.value), data.edges, includeBacklinks);
+  const nodes = data.nodes.filter(node =>
     (!focused || focused.has(node.id)) && matchesSearch(node, query)
   );
   const ids = new Set(nodes.map(node => node.id));
-  draw(nodes, allData.edges.filter(([from, to]) => ids.has(from) && ids.has(to)));
+  draw(nodes, data.edges.filter(([from, to]) => ids.has(from) && ids.has(to)), data.edges);
   if (fit && nodes.length) fitGraph();
   if (focusLost) resizeGraph();
 }

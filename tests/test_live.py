@@ -16,6 +16,86 @@ from ztypy import cli, live
 
 
 class LiveTests(unittest.TestCase):
+    def test_tag_nodes_and_note_clicks(self) -> None:
+        if not shutil.which("node"):
+            self.skipTest("Node.js is needed to run the browser tag graph test")
+        script = "function graphWithTags(" + live.PAGE.split("function graphWithTags(", 1)[1].split(
+            "\nfunction filterGraph(", 1
+        )[0]
+        script += "\nfunction selectNode(" + live.PAGE.split("function selectNode(", 1)[1].split(
+            "\nfunction updateFocusControls(", 1
+        )[0]
+        script += "\nfunction neighborhood(" + live.PAGE.split("function neighborhood(", 1)[1].split(
+            "\nfunction fuzzyMatch(", 1
+        )[0]
+        script += """
+const allData = {nodes: [
+  {id: '12345678901234', title: 'First', tags: ['algebra']},
+  {id: '12345678901235', title: 'Second', tags: ['algebra', 'geometry']},
+], edges: [['12345678901234', '12345678901235']]};
+let showTagNodes = true, focusRoot = null, hovered = null;
+const search = {value: 'first #alg'};
+const opened = [];
+function updateFocusControls() {}
+function filterGraph() {}
+function resizeGraph() {}
+function openNote(id) { opened.push(id); }
+const graph = graphWithTags();
+if (graph.nodes.length !== 4 || graph.edges.length !== 7 ||
+    !graph.nodes.some(node => node.id === 'tag:algebra' && node.title === '#algebra')) {
+  throw new Error('tag nodes missing');
+}
+if (!neighborhood('tag:algebra', 1, graph.edges, false).has('12345678901234') ||
+    !neighborhood('12345678901234', 1, graph.edges, false).has('tag:algebra')) {
+  throw new Error('tag membership not traversable');
+}
+selectNode('tag:algebra');
+if (search.value !== '' || focusRoot !== 'tag:algebra' || opened.length) {
+  throw new Error('tag click opened a file or did not focus');
+}
+search.value = 'second';
+selectNode('12345678901235');
+if (search.value !== '' || focusRoot !== '12345678901235' ||
+    opened[0] !== '12345678901235') throw new Error('note click did not open file');
+"""
+        result = subprocess.run(["node"], input=script, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_hover_respects_backlink_toggle(self) -> None:
+        if not shutil.which("node"):
+            self.skipTest("Node.js is needed to run the browser hover test")
+        script = "function highlight(" + live.PAGE.split("function highlight(", 1)[1].split(
+            "\nfunction updateArrows(", 1
+        )[0]
+        script += """
+let focusRoot = null, hovered = 'B', includeBacklinks = false;
+const search = {value: ''};
+function element() { return {attrs: {}, setAttribute(key, value) { this.attrs[key] = value; }}; }
+const positions = new Map(['A', 'B', 'C', 'D'].map(id =>
+  [id, {id, group: element(), label: element()}]));
+const links = [
+  {from: 'A', to: 'B', bidirectional: false, path: element()},
+  {from: 'B', to: 'C', bidirectional: false, path: element()},
+  {from: 'D', to: 'B', bidirectional: true, path: element()},
+];
+highlight();
+if (positions.get('A').label.attrs.visibility !== 'hidden' ||
+    positions.get('C').label.attrs.visibility !== 'visible' ||
+    positions.get('D').label.attrs.visibility !== 'visible' ||
+    links[0].path.attrs.opacity !== 0.15) throw new Error(JSON.stringify({
+      a: positions.get('A').label.attrs.visibility,
+      c: positions.get('C').label.attrs.visibility,
+      d: positions.get('D').label.attrs.visibility,
+      edge: links[0].path.attrs.opacity,
+    }));
+includeBacklinks = true;
+highlight();
+if (positions.get('A').label.attrs.visibility !== 'visible' ||
+    links[0].path.attrs.opacity !== 1) throw new Error('backlink not highlighted');
+"""
+        result = subprocess.run(["node"], input=script, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_subgraph_backlink_toggle(self) -> None:
         if not shutil.which("node"):
             self.skipTest("Node.js is needed to run the browser graph test")
@@ -137,15 +217,15 @@ for (const [query, expected] of cases) {
                         "marker-end", "marker-start", "auto-start-reverse",
                         "seenPairs.has(key)", "bidirectional", "fitGraph()",
                         "'text-anchor': 'middle'", "8 + 4 * Math.sqrt(degree.get(node.id)",
-                        "fill: colorForFile(node.id)", "for (const character of `${id}.typ`)",
+                        "fill: colorForNode(node)", "node.kind === 'tag' ? node.title : `${node.id}.typ`",
                         "hovered && connected.has(node.id) ? 'visible' : 'hidden'",
                         "'paint-order': 'stroke'", "'font-weight': 'bold'",
                         "fill: 'var(--label)', stroke: 'var(--halo)'",
                         "stroke: 'var(--edge)'", "fill: 'var(--edge)'",
-                        "showDirection && link.bidirectional", "function neighborhood(root, depth, edges, withBacklinks)",
+                        "showDirection && link.bidirectional && !link.tagLink", "function neighborhood(root, depth, edges, withBacklinks)",
                         "neighbors.get(from).push(to)", "if (withBacklinks) neighbors.get(to).push(from)",
                         "focusRoot = id", "if (selected) selectNode(selected)",
-                        "filterGraph();\n  resizeGraph();\n  openNote(id);",
+                        "search.value = '';", "if (!id.startsWith('tag:')) openNote(id);",
                         "if (focusRoot !== null)",
                         "node.label.setAttribute('visibility', 'visible')",
                         "node.vx *= 0.6; node.vy *= 0.6", "energy *= 0.97",
@@ -158,6 +238,9 @@ for (const [query, expected] of cases) {
                     self.assertIn('id="search"', page)
                     self.assertIn('id="direction" type="button"', page)
                     self.assertIn('id="backlinks" type="button"', page)
+                    self.assertIn('id="tags" type="button"', page)
+                    self.assertIn('#tags[aria-pressed="true"]', page)
+                    self.assertIn('aria-label="Tag nodes" title="Show tags as nodes" aria-pressed="false"', page)
                     self.assertIn('aria-label="Include backlinks" title="Hide backlinks" aria-pressed="true"', page)
                     self.assertIn("backlinksSlash.setAttribute('display', includeBacklinks ? 'none' : 'inline')", page)
                     self.assertIn('id="direction-slash" d="M22 2 2 22" display="none"', page)
