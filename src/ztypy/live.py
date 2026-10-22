@@ -13,10 +13,10 @@ from ztypy import txtify
 
 PAGE = r"""<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Slipbox graph</title></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Graph</title></head>
 <body>
-<input id="search" type="search" placeholder="Filter tags" aria-label="Filter tags">
-<svg id="graph" width="100%" height="700" viewBox="0 0 1000 700" role="img" aria-label="Note graph"></svg>
+<div><input id="search" type="search" aria-label="Search tags" placeholder="Search tags (tag_one tag_two)"></div>
+<svg id="graph" role="img" aria-label="Graph"></svg>
 <script>
 const graph = document.getElementById('graph');
 const search = document.getElementById('search');
@@ -44,6 +44,24 @@ let previous = '';
 let allData = {nodes: [], edges: []};
 let initialFit = false;
 let refitFrames = 0;
+
+// Layout only; leave the browser's default colors and controls unchanged.
+document.body.style.margin = '0';
+graph.style.display = 'block';
+search.style.width = '100%';
+search.style.boxSizing = 'border-box';
+
+function resizeGraph() {
+  const width = window.innerWidth;
+  const height = Math.max(1, window.innerHeight - graph.getBoundingClientRect().top);
+  graph.setAttribute('width', width);
+  graph.setAttribute('height', height);
+  graph.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  if (positions.size) fitGraph();
+}
+
+window.addEventListener('resize', resizeGraph);
+resizeGraph();
 
 function element(tag, attributes) {
   const node = document.createElementNS(svgNS, tag);
@@ -182,8 +200,8 @@ function draw(nodes, edges) {
       const anchor = neighbor && positions.get(neighbor[0] === node.id ? neighbor[1] : neighbor[0]);
       const angle = index * 2.4;
       positions.set(node.id, {
-        id: node.id, x: (anchor?.x ?? 500) + 70 * Math.cos(angle),
-        y: (anchor?.y ?? 350) + 70 * Math.sin(angle), vx: 0, vy: 0,
+        id: node.id, x: (anchor?.x ?? graph.viewBox.baseVal.width / 2) + 70 * Math.cos(angle),
+        y: (anchor?.y ?? graph.viewBox.baseVal.height / 2) + 70 * Math.sin(angle), vx: 0, vy: 0,
       });
     }
   }
@@ -243,9 +261,10 @@ function draw(nodes, edges) {
 }
 
 function filterGraph(fit = true) {
-  const query = search.value.toLowerCase().split(/[\s:]+/).filter(Boolean);
+  const input = search.value.trim().toLowerCase();
+  const query = input.split(/\s+/).filter(Boolean);
   const nodes = allData.nodes.filter(node =>
-    query.every(tag => node.tags.some(value => value.toLowerCase().includes(tag)))
+    query.every(tag => node.tags.some(value => value.toLowerCase() === tag))
   );
   const ids = new Set(nodes.map(node => node.id));
   draw(nodes, allData.edges.filter(([from, to]) => ids.has(from) && ids.has(to)));
@@ -280,10 +299,12 @@ function render() {
 function animate() {
   if (energy > 0.001) {
     const nodes = [...positions.values()];
+    const centerX = graph.viewBox.baseVal.width / 2;
+    const centerY = graph.viewBox.baseVal.height / 2;
     for (let i = 0; i < nodes.length; i++) {
       const a = nodes[i];
-      a.vx += (500 - a.x) * 0.0003;
-      a.vy += (350 - a.y) * 0.0003;
+      a.vx += (centerX - a.x) * 0.0003;
+      a.vy += (centerY - a.y) * 0.0003;
       for (let j = i + 1; j < nodes.length; j++) {
         const b = nodes[j];
         const dx = a.x - b.x, dy = a.y - b.y;

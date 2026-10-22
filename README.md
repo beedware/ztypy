@@ -21,15 +21,18 @@ uv run ztypy generate layout.txt --output-dir output
 
 `live` reads `.typ` files from the given directory and serves a graph at
 `http://127.0.0.1:8000/`. The browser checks for changes every second; no
-intermediate text file or external JavaScript service is needed. The graph uses
+intermediate text file or external JavaScript service is needed. The graph fills
+the browser window below the search bar and resizes with it. The graph uses
 force-based layout: scroll to zoom, drag the background to pan, drag notes to
 rearrange them, and hover to highlight a note's connections. Arrows point from
 each note to the notes it links to. Nodes with more incoming or outgoing links
 are larger, with titles centered beneath them. The initial view fits the graph,
-and labels disappear when zoomed out. The search bar filters by colon-delimited
-tags in each note (for example, `:tag1:tag2:`); multiple search terms must
-all match. Click a note (or
-focus it and press Enter) to open its file in an existing Neovim instance.
+and labels disappear when zoomed out. The search bar matches whole tags from
+each note's colon-delimited tag line (for example, `:tag_one:tag_two:`).
+The search bar's placeholder shows the space-separated format, such as
+`tag_one tag_two`. All entered tags must match. Click a note
+(or focus it and press Enter) to open
+its file in an existing Neovim instance.
 
 To enable note clicks, start Neovim with a local server socket, then pass the
 same address to `live`:
