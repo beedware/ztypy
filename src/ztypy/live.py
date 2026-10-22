@@ -24,7 +24,7 @@ const svgNS = 'http://www.w3.org/2000/svg';
 const defs = element('defs', {});
 const arrow = element('marker', {
   id: 'link-arrow', viewBox: '0 0 10 10', refX: 9, refY: 5,
-  markerWidth: 10, markerHeight: 10, markerUnits: 'userSpaceOnUse', orient: 'auto',
+  markerWidth: 10, markerHeight: 10, markerUnits: 'userSpaceOnUse', orient: 'auto-start-reverse',
 });
 arrow.append(element('path', {d: 'M 0 0 L 10 5 L 0 10 Z', fill: 'black'}));
 defs.append(arrow);
@@ -67,6 +67,14 @@ function element(tag, attributes) {
   const node = document.createElementNS(svgNS, tag);
   for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
   return node;
+}
+
+function colorForFile(id) {
+  let hash = 2166136261;
+  for (const character of `${id}.typ`) {
+    hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
+  }
+  return `hsl(${hash % 360} ${55 + ((hash >>> 9) % 25)}% ${40 + ((hash >>> 17) % 18)}%)`;
 }
 
 async function openNote(id) {
@@ -209,20 +217,28 @@ function draw(nodes, edges) {
   linksLayer.replaceChildren();
   nodesLayer.replaceChildren();
   const pairs = new Set(edges.map(([from, to]) => `${from}:${to}`));
-  links = edges.filter(([a, b]) => positions.has(a) && positions.has(b)).map(([from, to]) => {
+  const seenPairs = new Set();
+  links = [];
+  for (const [from, to] of edges) {
+    if (!positions.has(from) || !positions.has(to)) continue;
+    const key = [from, to].sort().join(':');
+    if (seenPairs.has(key)) continue;
+    seenPairs.add(key);
+    const bidirectional = from !== to && pairs.has(`${to}:${from}`);
     const path = element('path', {
       fill: 'none', stroke: 'black', 'marker-end': 'url(#link-arrow)',
+      ...(bidirectional ? {'marker-start': 'url(#link-arrow)'} : {}),
     });
     linksLayer.append(path);
-    return {from, to, path, reciprocal: pairs.has(`${to}:${from}`) && from !== to};
-  });
+    links.push({from, to, path, bidirectional});
+  }
   for (const node of nodes) {
     const position = positions.get(node.id);
-    position.radius = Math.min(24, 6 + 2 * Math.sqrt(degree.get(node.id) ?? 0));
+    position.radius = Math.min(36, 8 + 4 * Math.sqrt(degree.get(node.id) ?? 0));
     const group = element('g', {
       'data-id': node.id, tabindex: '0', role: 'button', 'aria-label': `Open ${node.title}`,
     });
-    group.append(element('circle', {r: position.radius, fill: 'black'}));
+    group.append(element('circle', {r: position.radius, fill: colorForFile(node.id)}));
     const label = element('text', {
       x: 0, y: position.radius + 18, 'text-anchor': 'middle',
     });
@@ -283,12 +299,10 @@ function render() {
       const dx = b.x - a.x, dy = b.y - a.y;
       const distance = Math.max(Math.hypot(dx, dy), 1);
       const ux = dx / distance, uy = dy / distance;
-      const startX = a.x + ux * (a.radius + 2), startY = a.y + uy * (a.radius + 2);
+      const startOffset = a.radius + (link.bidirectional ? 5 : 2);
+      const startX = a.x + ux * startOffset, startY = a.y + uy * startOffset;
       const endX = b.x - ux * (b.radius + 5), endY = b.y - uy * (b.radius + 5);
-      const curve = link.reciprocal
-        ? `Q ${(a.x + b.x) / 2 - uy * 30} ${(a.y + b.y) / 2 + ux * 30}`
-        : 'L';
-      link.path.setAttribute('d', `M ${startX} ${startY} ${curve} ${endX} ${endY}`);
+      link.path.setAttribute('d', `M ${startX} ${startY} L ${endX} ${endY}`);
     }
   }
   for (const node of positions.values()) {

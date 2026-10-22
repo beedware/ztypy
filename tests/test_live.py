@@ -48,8 +48,10 @@ class LiveTests(unittest.TestCase):
                     self.assertNotIn("unpkg.com", page)
                     for interaction in (
                         "requestAnimationFrame(animate)", "pointerdown", "wheel", "highlight()",
-                        "marker-end", "reciprocal", "fitGraph()", "scale < 0.7",
-                        "'text-anchor': 'middle'", "Math.sqrt(degree.get(node.id)",
+                        "marker-end", "marker-start", "auto-start-reverse",
+                        "seenPairs.has(key)", "bidirectional", "fitGraph()", "scale < 0.7",
+                        "'text-anchor': 'middle'", "8 + 4 * Math.sqrt(degree.get(node.id)",
+                        "fill: colorForFile(node.id)", "for (const character of `${id}.typ`)",
                     ):
                         self.assertIn(interaction, page)
                     with urlopen(url + "/graph") as response:

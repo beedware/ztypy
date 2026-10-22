@@ -25,8 +25,10 @@ intermediate text file or external JavaScript service is needed. The graph fills
 the browser window below the search bar and resizes with it. The graph uses
 force-based layout: scroll to zoom, drag the background to pan, drag notes to
 rearrange them, and hover to highlight a note's connections. Arrows point from
-each note to the notes it links to. Nodes with more incoming or outgoing links
-are larger, with titles centered beneath them. The initial view fits the graph,
+each note to the notes it links to; reciprocal links share one line with arrows
+at both ends. Nodes have stable colors based on their
+filenames; nodes with more incoming or outgoing links are larger, with titles
+centered beneath them. The initial view fits the graph,
 and labels disappear when zoomed out. The search bar matches whole tags from
 each note's colon-delimited tag line (for example, `:tag_one:tag_two:`).
 The search bar's placeholder shows the space-separated format, such as
