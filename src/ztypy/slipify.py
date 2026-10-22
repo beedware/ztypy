@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
 
 
 @dataclass(frozen=True)
@@ -13,9 +12,9 @@ class Note:
     note_id: str
 
 
-def parse_adjacency_layout(layout_path: Path) -> Tuple[Dict[str, List[str]], Set[str]]:
-    adjacency: Dict[str, List[str]] = {}
-    all_nodes: Set[str] = set()
+def parse_adjacency_layout(layout_path: Path) -> tuple[dict[str, list[str]], set[str]]:
+    adjacency: dict[str, list[str]] = {}
+    all_nodes: set[str] = set()
     current_parent: str | None = None
 
     for raw in layout_path.read_text(encoding="utf-8").splitlines():
@@ -36,9 +35,9 @@ def parse_adjacency_layout(layout_path: Path) -> Tuple[Dict[str, List[str]], Set
     return adjacency, all_nodes
 
 
-def generate_note_ids(nodes: List[str]) -> Dict[str, Note]:
-    base = datetime.now().replace(microsecond=0)
-    notes: Dict[str, Note] = {}
+def generate_note_ids(nodes: list[str]) -> dict[str, Note]:
+    base = datetime.now(timezone.utc).replace(microsecond=0)
+    notes: dict[str, Note] = {}
 
     for index, title in enumerate(nodes):
         note_time = base + timedelta(seconds=index)
@@ -48,7 +47,7 @@ def generate_note_ids(nodes: List[str]) -> Dict[str, Note]:
     return notes
 
 
-def phase_1_create_files(output_dir: Path, notes: Dict[str, Note]) -> None:
+def phase_1_create_files(output_dir: Path, notes: dict[str, Note]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     base_content = (
         '#import ".utility/style.typ": style\n'
@@ -66,7 +65,7 @@ def phase_1_create_files(output_dir: Path, notes: Dict[str, Note]) -> None:
         file_path.write_text(base_content, encoding="utf-8")
 
 
-def phase_2_add_titles(output_dir: Path, notes: Dict[str, Note]) -> None:
+def phase_2_add_titles(output_dir: Path, notes: dict[str, Note]) -> None:
     for note in notes.values():
         file_path = output_dir / f"{note.note_id}.typ"
         content = file_path.read_text(encoding="utf-8")
@@ -76,10 +75,10 @@ def phase_2_add_titles(output_dir: Path, notes: Dict[str, Note]) -> None:
 
 
 def phase_3_add_links(
-    output_dir: Path, notes: Dict[str, Note], adjacency: Dict[str, List[str]]
+    output_dir: Path, notes: dict[str, Note], adjacency: dict[str, list[str]]
 ) -> None:
     for title, note in notes.items():
-        child_ids: Set[str] = set()
+        child_ids: set[str] = set()
         for child in adjacency.get(title, []):
             child_ids.add(notes[child].note_id)
 
@@ -96,9 +95,9 @@ def phase_3_add_links(
 
 
 def build_slip_layout_text(
-    adjacency: Dict[str, List[str]], notes: Dict[str, Note]
+    adjacency: dict[str, list[str]], notes: dict[str, Note]
 ) -> str:
-    lines: List[str] = []
+    lines: list[str] = []
 
     for parent_title in sorted(adjacency):
         parent_name = f"{notes[parent_title].note_id}.typ"
@@ -151,7 +150,9 @@ def add_subparser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
     )
-    parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
+    parser.add_argument(
+        "-h", "--help", action="help", help="Show this help message and exit"
+    )
 
     parser.add_argument(
         "layout_file",

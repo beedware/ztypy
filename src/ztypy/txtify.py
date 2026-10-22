@@ -4,7 +4,6 @@ import argparse
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
 
 FILENAME_RE = re.compile(r"^(\d{14})\.typ$")
 TITLE_RE = re.compile(r'^#let\s+title\s*=\s*"(.*)"\s*$')
@@ -14,8 +13,8 @@ TITLE_RE = re.compile(r'^#let\s+title\s*=\s*"(.*)"\s*$')
 class Node:
     note_id: str
     title: str
-    links: List[str]
-    backlinks: List[str]
+    links: list[str]
+    backlinks: list[str]
 
 
 def extract_title(content: str, file_path: Path) -> str:
@@ -26,7 +25,7 @@ def extract_title(content: str, file_path: Path) -> str:
     raise ValueError(f"Missing '#let title = \"...\"' in {file_path}")
 
 
-def extract_links(content: str) -> List[str]:
+def extract_links(content: str) -> list[str]:
     lines = content.splitlines()
     links_index = None
 
@@ -38,12 +37,12 @@ def extract_links(content: str) -> List[str]:
     if links_index is None:
         return []
 
-    links: List[str] = []
+    links: list[str] = []
     for line in lines[links_index + 1 :]:
         stripped = line.strip()
         if not stripped:
             continue
-        if stripped.startswith("=") or stripped.startswith("#bibliography"):
+        if stripped.startswith(("=", "#bibliography")):
             break
         if stripped.startswith("- "):
             link_id = stripped[2:].strip()
@@ -53,20 +52,20 @@ def extract_links(content: str) -> List[str]:
     return links
 
 
-def populate_backlinks(nodes: Dict[str, Node]) -> None:
+def populate_backlinks(nodes: dict[str, Node]) -> None:
     for node in nodes.values():
         for link in node.links:
             if link in nodes:
                 nodes[link].backlinks.append(node.note_id)
 
 
-def load_nodes_from_directory(typ_dir: Path) -> Dict[str, Node]:
+def load_nodes_from_directory(typ_dir: Path) -> dict[str, Node]:
     typ_files = sorted(typ_dir.glob("*.typ"))
     if not typ_files:
         raise ValueError(f"No .typ files found in {typ_dir}")
 
-    nodes: Dict[str, Node] = {}
-    invalid_names: List[str] = []
+    nodes: dict[str, Node] = {}
+    invalid_names: list[str] = []
 
     for path in typ_files:
         match = FILENAME_RE.fullmatch(path.name)
@@ -90,11 +89,11 @@ def load_nodes_from_directory(typ_dir: Path) -> Dict[str, Node]:
     return nodes
 
 
-def build_adjacency_text(nodes: Dict[str, Node], backlinks: bool = False) -> str:
+def build_adjacency_text(nodes: dict[str, Node], backlinks: bool = False) -> str:
     id_to_title = {node.note_id: node.title for node in nodes.values()}
     ordered_nodes = [nodes[note_id] for note_id in sorted(nodes)]
 
-    blocks: List[str] = []
+    blocks: list[str] = []
 
     for node in ordered_nodes:
         block_lines = [node.title]
@@ -143,7 +142,9 @@ def add_subparser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
     )
-    parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
+    parser.add_argument(
+        "-h", "--help", action="help", help="Show this help message and exit"
+    )
     parser.add_argument(
         "directory",
         metavar="DIR",

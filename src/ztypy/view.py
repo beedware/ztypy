@@ -7,14 +7,13 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List, Set, Tuple
 
 
 def parse_adjacency_layout(
     layout_path: Path,
-) -> Tuple[List[str], List[Tuple[str, str]]]:
-    nodes: Set[str] = set()
-    edges: Set[Tuple[str, str]] = set()
+) -> tuple[list[str], list[tuple[str, str]]]:
+    nodes: set[str] = set()
+    edges: set[tuple[str, str]] = set()
     current_parent: str | None = None
 
     for raw in layout_path.read_text(encoding="utf-8").splitlines():
@@ -49,7 +48,7 @@ def populate_edge_payload(edges: list[tuple[str, str]]) -> list[dict[str, str]]:
 
 
 def build_html(
-    graph_title: str, node_titles: List[str], edges: List[Tuple[str, str]]
+    graph_title: str, node_titles: list[str], edges: list[tuple[str, str]]
 ) -> str:
     node_payload = [{"id": title, "label": title} for title in node_titles]
     edge_payload = populate_edge_payload(edges)
@@ -189,7 +188,9 @@ def add_subparser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
     )
-    parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
+    parser.add_argument(
+        "-h", "--help", action="help", help="Show this help message and exit"
+    )
     parser.add_argument(
         "txt_file",
         metavar="FILE",

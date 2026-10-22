@@ -11,7 +11,9 @@ def build_parser() -> argparse.ArgumentParser:
         description="CLI for slipbox tools: txtify, view, slipify",
         add_help=False,
     )
-    parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
+    parser.add_argument(
+        "-h", "--help", action="help", help="Show this help message and exit"
+    )
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
 
     txtify.add_subparser(subparsers)

@@ -65,9 +65,8 @@ class TxtifyTests(unittest.TestCase):
         self.assertEqual(nodes["20260101010101"].backlinks, [])
 
     def test_load_nodes_from_directory_raises_if_empty(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with self.assertRaises(ValueError):
-                txtify.load_nodes_from_directory(Path(temp_dir))
+        with tempfile.TemporaryDirectory() as temp_dir, self.assertRaises(ValueError):
+            txtify.load_nodes_from_directory(Path(temp_dir))
 
     def test_load_nodes_from_directory_raises_on_invalid_filename(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

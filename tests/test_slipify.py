@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -73,9 +74,9 @@ class SlipifyTests(unittest.TestCase):
             layout.write_text("A\n  B\n", encoding="utf-8")
 
             with patch("ztypy.slipify.datetime") as mocked_datetime:
-                from datetime import datetime as _DT
-
-                mocked_datetime.now.return_value = _DT(2026, 1, 1, 1, 1, 1)
+                mocked_datetime.now.return_value = datetime(
+                    2026, 1, 1, 1, 1, 1, tzinfo=timezone.utc
+                )
                 slipify.run(str(layout), str(root / "out"))
 
             self.assertTrue((root / "layout.slip.txt").exists())
