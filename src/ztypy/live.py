@@ -17,16 +17,15 @@ PAGE = r"""<!doctype html>
 <body>
 <div id="toolbar">
   <input id="search" type="search" aria-label="Search tags" placeholder="Search tags (tag_one tag_two)">
-  <button id="direction" type="button" aria-label="Edge directions" title="Toggle edge directions" aria-pressed="true"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M2 10 H18 M13 5 L18 10 L13 15" fill="none" stroke="currentColor"/></svg></button>
-  <button id="focus" type="button" aria-label="Focus on descendants" title="Focus on descendants" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="5" r="2" fill="none" stroke="currentColor"/><circle cx="14" cy="14" r="2" fill="none" stroke="currentColor"/><path d="M6 6 L13 12 M9 12 H16" fill="none" stroke="currentColor"/></svg></button>
+  <button id="expand" type="button" aria-label="Show full graph" title="Show full graph" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 15 6 6"/><path d="m15 9 6-6"/><path d="M21 16v5h-5"/><path d="M21 8V3h-5"/><path d="M3 16v5h5"/><path d="m3 21 6-6"/><path d="M3 8V3h5"/><path d="M9 9 3 3"/></svg></button>
 </div>
-<label id="generation-control" hidden>Generations: <input id="generations" type="range" min="0" max="10" value="1"><output id="generation-count">1</output></label>
+<div id="controls"><label><input id="direction" type="checkbox" checked>Show arrows</label><span id="generation-control" hidden><label for="generations">Generations:</label><input id="generations" type="range" min="0" max="10" value="1"><output id="generation-count">1</output></span></div>
 <svg id="graph" role="img" aria-label="Graph"></svg>
 <script>
 const graph = document.getElementById('graph');
 const search = document.getElementById('search');
-const directionButton = document.getElementById('direction');
-const focusButton = document.getElementById('focus');
+const directionCheckbox = document.getElementById('direction');
+const expandButton = document.getElementById('expand');
 const generationControl = document.getElementById('generation-control');
 const generations = document.getElementById('generations');
 const generationCount = document.getElementById('generation-count');
@@ -54,8 +53,6 @@ let previous = '';
 let allData = {nodes: [], edges: []};
 let initialFit = false;
 let refitFrames = 0;
-let showDirection = true;
-let focusMode = false;
 let focusRoot = null;
 
 // Layout only; leave the browser's default colors and controls unchanged.
@@ -65,6 +62,11 @@ document.getElementById('toolbar').style.display = 'flex';
 search.style.flex = '1';
 search.style.minWidth = '0';
 search.style.boxSizing = 'border-box';
+document.getElementById('controls').style.display = 'flex';
+document.getElementById('controls').style.alignItems = 'center';
+document.getElementById('controls').style.gap = '1em';
+generationControl.style.alignItems = 'center';
+generationControl.style.gap = '0.5em';
 
 function resizeGraph() {
   const width = window.innerWidth;
@@ -106,25 +108,28 @@ async function openNote(id) {
 }
 
 function selectNode(id) {
-  if (focusMode) {
-    focusRoot = id;
-    filterGraph();
-  } else {
-    openNote(id);
-  }
+  focusRoot = id;
+  hovered = null;
+  updateFocusControls();
+  filterGraph();
+  resizeGraph();
+  openNote(id);
 }
 
-directionButton.addEventListener('click', () => {
-  showDirection = !showDirection;
-  directionButton.setAttribute('aria-pressed', String(showDirection));
+function updateFocusControls() {
+  expandButton.disabled = focusRoot === null;
+  generationControl.hidden = focusRoot === null;
+  generationControl.style.display = focusRoot === null ? 'none' : 'flex';
+}
+
+directionCheckbox.addEventListener('change', () => {
   updateArrows();
 });
 
-focusButton.addEventListener('click', () => {
-  focusMode = !focusMode;
+expandButton.addEventListener('click', () => {
   focusRoot = null;
-  focusButton.setAttribute('aria-pressed', String(focusMode));
-  generationControl.hidden = !focusMode;
+  hovered = null;
+  updateFocusControls();
   filterGraph();
   resizeGraph();
 });
@@ -217,6 +222,14 @@ graph.addEventListener('pointerup', event => {
 graph.addEventListener('pointercancel', () => { drag = null; });
 
 function highlight() {
+  if (focusRoot !== null) {
+    for (const link of links) link.path.setAttribute('opacity', 1);
+    for (const node of positions.values()) {
+      node.group.setAttribute('opacity', 1);
+      node.label.setAttribute('visibility', 'visible');
+    }
+    return;
+  }
   const connected = new Set([hovered]);
   for (const link of links) {
     if (link.from === hovered) connected.add(link.to);
@@ -232,9 +245,9 @@ function highlight() {
 
 function updateArrows() {
   for (const link of links) {
-    link.path.setAttribute('marker-end', showDirection ? 'url(#link-arrow)' : 'none');
+    link.path.setAttribute('marker-end', directionCheckbox.checked ? 'url(#link-arrow)' : 'none');
     link.path.setAttribute('marker-start',
-      showDirection && link.bidirectional ? 'url(#link-arrow)' : 'none');
+      directionCheckbox.checked && link.bidirectional ? 'url(#link-arrow)' : 'none');
   }
 }
 
@@ -279,7 +292,7 @@ function draw(nodes, edges) {
     position.radius = Math.min(36, 8 + 4 * Math.sqrt(degree.get(node.id) ?? 0));
     const group = element('g', {
       'data-id': node.id, tabindex: '0', role: 'button',
-      'aria-label': `${focusMode ? 'Focus on' : 'Open'} ${node.title}`,
+      'aria-label': `Open and focus on ${node.title}`,
     });
     group.append(element('circle', {r: position.radius, fill: colorForFile(node.id)}));
     const label = element('text', {
@@ -321,21 +334,23 @@ function draw(nodes, edges) {
   }
 }
 
-function descendants(root, depth, edges) {
-  const children = new Map();
+function neighborhood(root, depth, edges) {
+  const neighbors = new Map();
   for (const [from, to] of edges) {
-    if (!children.has(from)) children.set(from, []);
-    children.get(from).push(to);
+    if (!neighbors.has(from)) neighbors.set(from, []);
+    if (!neighbors.has(to)) neighbors.set(to, []);
+    neighbors.get(from).push(to);
+    neighbors.get(to).push(from);
   }
   const visible = new Set([root]);
   let frontier = [root];
   for (let generation = 0; generation < depth && frontier.length; generation++) {
     const next = [];
     for (const parent of frontier) {
-      for (const child of children.get(parent) ?? []) {
-        if (visible.has(child)) continue;
-        visible.add(child);
-        next.push(child);
+      for (const neighbor of neighbors.get(parent) ?? []) {
+        if (visible.has(neighbor)) continue;
+        visible.add(neighbor);
+        next.push(neighbor);
       }
     }
     frontier = next;
@@ -344,13 +359,17 @@ function descendants(root, depth, edges) {
 }
 
 function filterGraph(fit = true) {
+  let focusLost = false;
   if (focusRoot !== null && !allData.nodes.some(node => node.id === focusRoot)) {
     focusRoot = null;
+    hovered = null;
+    updateFocusControls();
+    focusLost = true;
   }
   const input = search.value.trim().toLowerCase();
   const query = input.split(/\s+/).filter(Boolean);
   const focused = focusRoot === null ? null
-    : descendants(focusRoot, Number(generations.value), allData.edges);
+    : neighborhood(focusRoot, Number(generations.value), allData.edges);
   const nodes = allData.nodes.filter(node =>
     (!focused || focused.has(node.id)) &&
     query.every(tag => node.tags.some(value => value.toLowerCase() === tag))
@@ -358,6 +377,7 @@ function filterGraph(fit = true) {
   const ids = new Set(nodes.map(node => node.id));
   draw(nodes, allData.edges.filter(([from, to]) => ids.has(from) && ids.has(to)));
   if (fit && nodes.length) fitGraph();
+  if (focusLost) resizeGraph();
 }
 
 search.addEventListener('input', () => filterGraph());
@@ -390,8 +410,8 @@ function animate() {
     const centerY = graph.viewBox.baseVal.height / 2;
     for (let i = 0; i < nodes.length; i++) {
       const a = nodes[i];
-      a.vx += (centerX - a.x) * 0.0003;
-      a.vy += (centerY - a.y) * 0.0003;
+      a.vx += (centerX - a.x) * 0.0008;
+      a.vy += (centerY - a.y) * 0.0008;
       for (let j = i + 1; j < nodes.length; j++) {
         const b = nodes[j];
         const dx = a.x - b.x, dy = a.y - b.y;
@@ -405,18 +425,18 @@ function animate() {
       const a = positions.get(link.from), b = positions.get(link.to);
       const dx = b.x - a.x, dy = b.y - a.y;
       const distance = Math.max(Math.hypot(dx, dy), 1);
-      const force = (distance - 120) * 0.003;
+      const force = (distance - 120) * 0.012;
       a.vx += dx / distance * force; a.vy += dy / distance * force;
       b.vx -= dx / distance * force; b.vy -= dy / distance * force;
     }
     for (const node of nodes) {
       if (drag?.kind === 'node' && drag.id === node.id) continue;
-      node.vx *= 0.8; node.vy *= 0.8;
+      node.vx *= 0.6; node.vy *= 0.6;
       node.x += node.vx; node.y += node.vy;
     }
     render();
     if (refitFrames > 0 && --refitFrames === 0) fitGraph();
-    energy *= 0.995;
+    energy *= 0.97;
   }
   requestAnimationFrame(animate);
 }

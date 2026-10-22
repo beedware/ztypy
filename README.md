@@ -22,9 +22,10 @@ uv run ztypy generate layout.txt --output-dir output
 `live` reads `.typ` files from the given directory and serves a graph at
 `http://127.0.0.1:8000/`. The browser checks for changes every second; no
 intermediate text file or external JavaScript service is needed. The graph fills
-the browser window below the search bar and resizes with it. The graph uses
-force-based layout: scroll to zoom, drag the background to pan, drag notes to
-rearrange them, and hover to reveal a note's title and its connected notes'
+the browser window below the controls and resizes with it. The graph uses
+force-based layout that settles quickly: scroll to zoom, drag the background
+to pan, drag notes to rearrange them, and hover to reveal a note's title and
+its connected notes'
 titles at any zoom level. Titles are otherwise hidden. Arrows point from
 each note to the notes it links to; reciprocal links share one line with arrows
 at both ends. Nodes have stable colors based on their
@@ -33,13 +34,15 @@ high-contrast titles centered beneath them when hovered. The initial view fits
 the graph. The search bar matches whole tags from
 each note's colon-delimited tag line (for example, `:tag_one:tag_two:`).
 The search bar's placeholder shows the space-separated format, such as
-`tag_one tag_two`. All entered tags must match. The arrow icon to the right of
-search toggles edge arrowheads (the lines stay visible). The other icon toggles
-descendant focus: when enabled, click a note to show only that note and its
-outgoing children, up to the selected number of generations (0–10). Click a
-visible child to focus on it instead; turn off the icon to restore the full
-graph. Outside focus mode, clicking a note (or focusing it and pressing Enter)
-opens its file in an existing Neovim instance.
+`tag_one tag_two`. All entered tags must match. The **Show arrows** checkbox
+below search toggles arrowheads (the lines stay visible). Clicking a note (or
+focusing it and pressing Enter) opens it in Neovim and shows that note and its
+linked children and backlinks. The generation slider beside the checkbox
+controls how many steps to follow in either direction (0–10). Click a visible
+node to focus on it instead. Focused subgraphs show all their titles without
+hover highlighting.
+Use the expand icon beside search to restore the full graph and normal hover
+behavior. The icon is a bundled Lucide SVG; see `src/ztypy/LUCIDE-LICENSE.txt`.
 
 To enable note clicks, start Neovim with a local server socket, then pass the
 same address to `live`:

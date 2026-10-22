@@ -55,17 +55,25 @@ class LiveTests(unittest.TestCase):
                         "hovered && connected.has(node.id) ? 'visible' : 'hidden'",
                         "'paint-order': 'stroke'", "'font-weight': 'bold'",
                         "fill: 'black', stroke: 'white'",
-                        "showDirection && link.bidirectional", "function descendants(root, depth, edges)",
+                        "directionCheckbox.checked && link.bidirectional", "function neighborhood(root, depth, edges)",
+                        "neighbors.get(from).push(to)", "neighbors.get(to).push(from)",
                         "focusRoot = id", "if (selected) selectNode(selected)",
+                        "filterGraph();\n  resizeGraph();\n  openNote(id);",
+                        "if (focusRoot !== null)",
+                        "node.label.setAttribute('visibility', 'visible')",
+                        "node.vx *= 0.6; node.vy *= 0.6", "energy *= 0.97",
                     ):
                         self.assertIn(interaction, page)
                     with urlopen(url + "/graph") as response:
                         data = json.load(response)
                     self.assertEqual(data["nodes"], [{"id": note.stem, "title": "<Note>", "tags": []}])
                     self.assertIn('id="search"', page)
-                    self.assertIn('id="direction" type="button"', page)
-                    self.assertIn('id="focus" type="button"', page)
+                    self.assertIn('id="direction" type="checkbox" checked', page)
+                    self.assertIn('id="expand" type="button"', page)
+                    self.assertIn('d="m15 15 6 6"', page)
                     self.assertIn('id="generations" type="range" min="0" max="10" value="1"', page)
+                    self.assertIn('generationControl.style.alignItems = \'center\'', page)
+                    self.assertIn("generationControl.style.display = focusRoot === null ? 'none' : 'flex'", page)
                     self.assertIn('id="search" type="search" aria-label="Search tags"', page)
                     self.assertIn('placeholder="Search tags (tag_one tag_two)"', page)
                     self.assertIn('<title>Graph</title>', page)
