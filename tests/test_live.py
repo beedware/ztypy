@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -10,10 +12,83 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from ztypy import live
+from ztypy import cli, live
 
 
 class LiveTests(unittest.TestCase):
+    def test_subgraph_backlink_toggle(self) -> None:
+        if not shutil.which("node"):
+            self.skipTest("Node.js is needed to run the browser graph test")
+        script = "function neighborhood(" + live.PAGE.split("function neighborhood(", 1)[1].split(
+            "\nfunction fuzzyMatch(", 1
+        )[0]
+        script += """
+const edges = [['A', 'B'], ['C', 'A'], ['B', 'D'], ['D', 'A']];
+const cases = [
+  [0, true, 'A'],
+  [1, true, 'A,B,C,D'],
+  [1, false, 'A,B'],
+  [2, false, 'A,B,D'],
+];
+for (const [depth, backlinks, expected] of cases) {
+  if ([...neighborhood('A', depth, edges, backlinks)].join(',') !== expected) {
+    throw new Error(`${depth}, ${backlinks}`);
+  }
+}
+"""
+        subprocess.run(["node"], input=script, text=True, capture_output=True, check=True)
+
+    def test_fuzzy_title_and_tag_search(self) -> None:
+        if not shutil.which("node"):
+            self.skipTest("Node.js is needed to run the browser search test")
+        script = "function fuzzyMatch(" + live.PAGE.split("function fuzzyMatch(", 1)[1].split(
+            "\nfunction filterGraph(", 1
+        )[0]
+        script += """
+const note = {title: 'Linear Algebra Basics', tags: ['linear_algebra', 'definition']};
+const cases = [
+  [[], true],
+  [['lnr', 'bs'], true],
+  [['#lin_alg', 'bas'], true],
+  [['#defn', '#lin_alg'], true],
+  [['#linear_algebra'], true],
+  [['linear_algebra'], false],
+  [['#'], false],
+  [['#other'], false],
+  [['bas', '#other'], false],
+];
+for (const [query, expected] of cases) {
+  if (matchesSearch(note, query) !== expected) throw new Error(JSON.stringify(query));
+}
+"""
+        subprocess.run(["node"], input=script, text=True, capture_output=True, check=True)
+
+    def test_theme_cli_options(self) -> None:
+        parser = cli.build_parser()
+        self.assertEqual(parser.parse_args(["live", "."]).theme, "system")
+        args = parser.parse_args(["live", ".", "--theme", "dark"])
+        with patch("ztypy.live.run") as run_mock:
+            args.func(args)
+        run_mock.assert_called_once_with(".", 8000, False, None, "dark")
+        with self.assertRaises(SystemExit):
+            parser.parse_args(["live", ".", "--theme", "other"])
+
+    def test_handler_uses_selected_theme(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with ThreadingHTTPServer(
+                ("127.0.0.1", 0), live.make_handler(Path(temp_dir), None, "dark")
+            ) as server:
+                thread = threading.Thread(target=server.serve_forever)
+                thread.start()
+                try:
+                    with urlopen(f"http://127.0.0.1:{server.server_port}/") as response:
+                        self.assertIn('data-theme="dark"', response.read().decode())
+                finally:
+                    server.shutdown()
+                    thread.join()
+        with self.assertRaises(ValueError):
+            live.make_handler(Path("."), None, "invalid")
+
     def test_graph_data_tracks_note_edits(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -44,7 +119,18 @@ class LiveTests(unittest.TestCase):
                     url = f"http://127.0.0.1:{server.server_port}"
                     with urlopen(url + "/") as response:
                         page = response.read().decode()
-                    self.assertNotIn("<style", page)
+                    self.assertIn("<style", page)
+                    self.assertIn('@media (prefers-color-scheme: dark)', page)
+                    self.assertIn(':root[data-theme="dark"]', page)
+                    self.assertIn('data-theme="system"', page)
+                    self.assertIn('--node-0: #a60000', page)
+                    self.assertIn('--node-0: #ff5f59', page)
+                    self.assertIn('--node-9: #79a8ff', page)
+                    self.assertIn('return `var(--node-${hash % 12})`', page)
+                    self.assertIn('#search { border-radius: 0; }', page)
+                    self.assertIn('#graph-actions {\n  position: fixed;', page)
+                    self.assertIn('place-items: center;', page)
+                    self.assertIn('left: 1rem;\n  bottom: 1rem;', page)
                     self.assertNotIn("unpkg.com", page)
                     for interaction in (
                         "requestAnimationFrame(animate)", "pointerdown", "wheel", "highlight()",
@@ -54,9 +140,10 @@ class LiveTests(unittest.TestCase):
                         "fill: colorForFile(node.id)", "for (const character of `${id}.typ`)",
                         "hovered && connected.has(node.id) ? 'visible' : 'hidden'",
                         "'paint-order': 'stroke'", "'font-weight': 'bold'",
-                        "fill: 'black', stroke: 'white'",
-                        "directionCheckbox.checked && link.bidirectional", "function neighborhood(root, depth, edges)",
-                        "neighbors.get(from).push(to)", "neighbors.get(to).push(from)",
+                        "fill: 'var(--label)', stroke: 'var(--halo)'",
+                        "stroke: 'var(--edge)'", "fill: 'var(--edge)'",
+                        "showDirection && link.bidirectional", "function neighborhood(root, depth, edges, withBacklinks)",
+                        "neighbors.get(from).push(to)", "if (withBacklinks) neighbors.get(to).push(from)",
                         "focusRoot = id", "if (selected) selectNode(selected)",
                         "filterGraph();\n  resizeGraph();\n  openNote(id);",
                         "if (focusRoot !== null)",
@@ -69,20 +156,26 @@ class LiveTests(unittest.TestCase):
                         data = json.load(response)
                     self.assertEqual(data["nodes"], [{"id": note.stem, "title": "<Note>", "tags": []}])
                     self.assertIn('id="search"', page)
-                    self.assertIn('id="direction" type="checkbox" checked', page)
+                    self.assertIn('id="direction" type="button"', page)
+                    self.assertIn('id="backlinks" type="button"', page)
+                    self.assertIn('aria-label="Include backlinks" title="Hide backlinks" aria-pressed="true"', page)
+                    self.assertIn("backlinksSlash.setAttribute('display', includeBacklinks ? 'none' : 'inline')", page)
+                    self.assertIn('id="direction-slash" d="M22 2 2 22" display="none"', page)
+                    self.assertIn("directionSlash.setAttribute('display', showDirection ? 'none' : 'inline')", page)
+                    self.assertNotIn('<select id="theme">', page)
                     self.assertIn('id="expand" type="button"', page)
                     self.assertIn('d="m15 15 6 6"', page)
                     self.assertIn('id="generations" type="range" min="0" max="10" value="1"', page)
                     self.assertIn('generationControl.style.alignItems = \'center\'', page)
                     self.assertIn("generationControl.style.display = focusRoot === null ? 'none' : 'flex'", page)
-                    self.assertIn('id="search" type="search" aria-label="Search tags"', page)
-                    self.assertIn('placeholder="Search tags (tag_one tag_two)"', page)
+                    self.assertIn('id="search" type="search" aria-label="Search titles and tags"', page)
+                    self.assertIn('placeholder="Search titles and #tags (title_word #tag_one)"', page)
                     self.assertIn('<title>Graph</title>', page)
                     self.assertNotIn('id="settings"', page)
                     self.assertIn("search.style.flex = '1'", page)
                     self.assertIn("window.addEventListener('resize', resizeGraph)", page)
                     self.assertIn('window.innerHeight - graph.getBoundingClientRect().top', page)
-                    self.assertIn("value.toLowerCase() === tag", page)
+                    self.assertIn("matchesSearch(node, query)", page)
                     self.assertIn('input.split(/\\s+/).filter(Boolean)', page)
                     self.assertNotIn('<h1>', page)
                     self.assertNotIn('id="status"', page)

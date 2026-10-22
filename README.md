@@ -22,7 +22,7 @@ uv run ztypy generate layout.txt --output-dir output
 `live` reads `.typ` files from the given directory and serves a graph at
 `http://127.0.0.1:8000/`. The browser checks for changes every second; no
 intermediate text file or external JavaScript service is needed. The graph fills
-the browser window below the controls and resizes with it. The graph uses
+the browser window below search and resizes with it. The graph uses
 force-based layout with room between nodes that settles quickly: scroll to zoom,
 drag the background to pan, drag notes to rearrange them, and hover to reveal
 a note's title and its connected notes'
@@ -31,18 +31,29 @@ each note to the notes it links to; reciprocal links share one line with arrows
 at both ends. Nodes have stable colors based on their
 filenames; nodes with more incoming or outgoing links are larger, with
 high-contrast titles centered beneath them when hovered. The initial view fits
-the graph. The search bar matches whole tags from
-each note's colon-delimited tag line (for example, `:tag_one:tag_two:`).
-The search bar's placeholder shows the space-separated format, such as
-`tag_one tag_two`. All entered tags must match. The **Show arrows** checkbox
-below search toggles arrowheads (the lines stay visible). Clicking a note (or
-focusing it and pressing Enter) opens it in Neovim and shows that note and its
-linked children and backlinks. The generation slider beside the checkbox
+the graph. Search title words directly and prefix tag searches with `#`. For
+example, `title_word #tag_one #tag_two` matches a title and both tags from a
+note's colon-delimited tag line (for example, `:tag_one:tag_two:`). Matching is
+case-insensitive and fuzzy (letters in order); all terms must match. The
+arrow button at the bottom right toggles arrowheads (the lines stay visible);
+its icon is crossed out when arrows are off.
+`live` defaults to the system color scheme; use `--theme light` or
+`--theme dark` to override it:
+
+```bash
+uv run ztypy live slipbox --theme dark
+```
+
+The light and dark graph palettes use the Modus colors from the Alacritty theme
+files; in system mode they follow your browser's color scheme. Clicking a note
+(or focusing it and pressing Enter) opens it in Neovim and shows that note with
+its linked children and backlinks. The generation slider at the bottom left
 controls how many steps to follow in either direction (0–10). Click a visible
 node to focus on it instead. Focused subgraphs show all their titles without
-hover highlighting.
-Use the expand icon beside search to restore the full graph and normal hover
-behavior. The icon is a bundled Lucide SVG; see `src/ztypy/LUCIDE-LICENSE.txt`.
+hover highlighting. The backlink button at the bottom right includes incoming
+links by default; turn it off to explore only outgoing links. Use the expand
+icon beside it to restore the full graph and normal hover behavior. The icons
+are bundled Lucide SVGs; see `src/ztypy/LUCIDE-LICENSE.txt`.
 
 To enable note clicks, start Neovim with a local server socket, then pass the
 same address to `live`:

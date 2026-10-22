@@ -1,4 +1,4 @@
-Lucide Icons: expand
+Lucide Icons: expand, move-right, reply, and slash
 https://github.com/lucide-icons/lucide
 
 ISC License

@@ -12,19 +12,116 @@ from ztypy import txtify
 
 
 PAGE = r"""<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Graph</title></head>
+<html lang="en" data-theme="system">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Graph</title>
+<style>
+:root {
+  color-scheme: light;
+  --background: #ffffff;
+  --text: #000000;
+  --edge: #595959;
+  --label: #000000;
+  --halo: #ffffff;
+  --node-0: #a60000;
+  --node-1: #006800;
+  --node-2: #6f5500;
+  --node-3: #0031a9;
+  --node-4: #721045;
+  --node-5: #005e8b;
+  --node-6: #972500;
+  --node-7: #00663f;
+  --node-8: #884900;
+  --node-9: #3548cf;
+  --node-10: #8f0075;
+  --node-11: #005f5f;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #000000;
+  --text: #ffffff;
+  --edge: #a6a6a6;
+  --label: #ffffff;
+  --halo: #000000;
+  --node-0: #ff5f59;
+  --node-1: #44bc44;
+  --node-2: #d0bc00;
+  --node-3: #2fafff;
+  --node-4: #feacd0;
+  --node-5: #00d3d0;
+  --node-6: #ff6b55;
+  --node-7: #00c06f;
+  --node-8: #fec43f;
+  --node-9: #79a8ff;
+  --node-10: #f78fe7;
+  --node-11: #6ae4b9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: #000000;
+    --text: #ffffff;
+    --edge: #a6a6a6;
+    --label: #ffffff;
+    --halo: #000000;
+    --node-0: #ff5f59;
+    --node-1: #44bc44;
+    --node-2: #d0bc00;
+    --node-3: #2fafff;
+    --node-4: #feacd0;
+    --node-5: #00d3d0;
+    --node-6: #ff6b55;
+    --node-7: #00c06f;
+    --node-8: #fec43f;
+    --node-9: #79a8ff;
+    --node-10: #f78fe7;
+    --node-11: #6ae4b9;
+  }
+}
+body { background: var(--background); color: var(--text); }
+#search { border-radius: 0; }
+#graph-actions {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+#graph-actions button {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+}
+#generation-control {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 1;
+  padding: 0.5rem;
+  background: var(--background);
+}
+</style></head>
 <body>
 <div id="toolbar">
-  <input id="search" type="search" aria-label="Search tags" placeholder="Search tags (tag_one tag_two)">
+  <input id="search" type="search" aria-label="Search titles and tags" placeholder="Search titles and #tags (title_word #tag_one)">
+</div>
+<div id="graph-actions">
+  <button id="direction" type="button" aria-label="Edge directions" title="Hide arrowheads" aria-pressed="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12H22"/><path d="M18 8L22 12L18 16"/><path id="direction-slash" d="M22 2 2 22" display="none"/></svg></button>
+  <button id="backlinks" type="button" aria-label="Include backlinks" title="Hide backlinks" aria-pressed="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 18v-2a4 4 0 0 0-4-4H4"/><path d="m9 17-5-5 5-5"/><path id="backlinks-slash" d="M22 2 2 22" display="none"/></svg></button>
   <button id="expand" type="button" aria-label="Show full graph" title="Show full graph" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 15 6 6"/><path d="m15 9 6-6"/><path d="M21 16v5h-5"/><path d="M21 8V3h-5"/><path d="M3 16v5h5"/><path d="m3 21 6-6"/><path d="M3 8V3h5"/><path d="M9 9 3 3"/></svg></button>
 </div>
-<div id="controls"><label><input id="direction" type="checkbox" checked>Show arrows</label><span id="generation-control" hidden><label for="generations">Generations:</label><input id="generations" type="range" min="0" max="10" value="1"><output id="generation-count">1</output></span></div>
+<span id="generation-control" hidden><label for="generations">Generations:</label><input id="generations" type="range" min="0" max="10" value="1"><output id="generation-count">1</output></span>
 <svg id="graph" role="img" aria-label="Graph"></svg>
 <script>
 const graph = document.getElementById('graph');
 const search = document.getElementById('search');
-const directionCheckbox = document.getElementById('direction');
+const directionButton = document.getElementById('direction');
+const directionSlash = document.getElementById('direction-slash');
+const backlinksButton = document.getElementById('backlinks');
+const backlinksSlash = document.getElementById('backlinks-slash');
 const expandButton = document.getElementById('expand');
 const generationControl = document.getElementById('generation-control');
 const generations = document.getElementById('generations');
@@ -35,7 +132,7 @@ const arrow = element('marker', {
   id: 'link-arrow', viewBox: '0 0 10 10', refX: 9, refY: 5,
   markerWidth: 10, markerHeight: 10, markerUnits: 'userSpaceOnUse', orient: 'auto-start-reverse',
 });
-arrow.append(element('path', {d: 'M 0 0 L 10 5 L 0 10 Z', fill: 'black'}));
+arrow.append(element('path', {d: 'M 0 0 L 10 5 L 0 10 Z', fill: 'var(--edge)'}));
 defs.append(arrow);
 graph.append(defs);
 const viewport = element('g', {});
@@ -54,17 +151,16 @@ let allData = {nodes: [], edges: []};
 let initialFit = false;
 let refitFrames = 0;
 let focusRoot = null;
+let showDirection = true;
+let includeBacklinks = true;
 
-// Layout only; leave the browser's default colors and controls unchanged.
+// Keep the graph sized to the space below search.
 document.body.style.margin = '0';
 graph.style.display = 'block';
 document.getElementById('toolbar').style.display = 'flex';
 search.style.flex = '1';
 search.style.minWidth = '0';
 search.style.boxSizing = 'border-box';
-document.getElementById('controls').style.display = 'flex';
-document.getElementById('controls').style.alignItems = 'center';
-document.getElementById('controls').style.gap = '1em';
 generationControl.style.alignItems = 'center';
 generationControl.style.gap = '0.5em';
 
@@ -91,7 +187,7 @@ function colorForFile(id) {
   for (const character of `${id}.typ`) {
     hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
   }
-  return `hsl(${hash % 360} ${55 + ((hash >>> 9) % 25)}% ${40 + ((hash >>> 17) % 18)}%)`;
+  return `var(--node-${hash % 12})`;
 }
 
 async function openNote(id) {
@@ -122,8 +218,20 @@ function updateFocusControls() {
   generationControl.style.display = focusRoot === null ? 'none' : 'flex';
 }
 
-directionCheckbox.addEventListener('change', () => {
+directionButton.addEventListener('click', () => {
+  showDirection = !showDirection;
+  directionButton.setAttribute('aria-pressed', String(showDirection));
+  directionButton.title = showDirection ? 'Hide arrowheads' : 'Show arrowheads';
+  directionSlash.setAttribute('display', showDirection ? 'none' : 'inline');
   updateArrows();
+});
+
+backlinksButton.addEventListener('click', () => {
+  includeBacklinks = !includeBacklinks;
+  backlinksButton.setAttribute('aria-pressed', String(includeBacklinks));
+  backlinksButton.title = includeBacklinks ? 'Hide backlinks' : 'Show backlinks';
+  backlinksSlash.setAttribute('display', includeBacklinks ? 'none' : 'inline');
+  if (focusRoot !== null) filterGraph();
 });
 
 expandButton.addEventListener('click', () => {
@@ -245,9 +353,9 @@ function highlight() {
 
 function updateArrows() {
   for (const link of links) {
-    link.path.setAttribute('marker-end', directionCheckbox.checked ? 'url(#link-arrow)' : 'none');
+    link.path.setAttribute('marker-end', showDirection ? 'url(#link-arrow)' : 'none');
     link.path.setAttribute('marker-start',
-      directionCheckbox.checked && link.bidirectional ? 'url(#link-arrow)' : 'none');
+      showDirection && link.bidirectional ? 'url(#link-arrow)' : 'none');
   }
 }
 
@@ -282,7 +390,7 @@ function draw(nodes, edges) {
     if (seenPairs.has(key)) continue;
     seenPairs.add(key);
     const bidirectional = from !== to && pairs.has(`${to}:${from}`);
-    const path = element('path', {fill: 'none', stroke: 'black'});
+    const path = element('path', {fill: 'none', stroke: 'var(--edge)'});
     linksLayer.append(path);
     links.push({from, to, path, bidirectional});
   }
@@ -297,7 +405,7 @@ function draw(nodes, edges) {
     group.append(element('circle', {r: position.radius, fill: colorForFile(node.id)}));
     const label = element('text', {
       x: 0, y: position.radius + 18, 'text-anchor': 'middle',
-      fill: 'black', stroke: 'white', 'stroke-width': 4,
+      fill: 'var(--label)', stroke: 'var(--halo)', 'stroke-width': 4,
       'paint-order': 'stroke', 'font-weight': 'bold',
     });
     label.textContent = node.title;
@@ -334,13 +442,13 @@ function draw(nodes, edges) {
   }
 }
 
-function neighborhood(root, depth, edges) {
+function neighborhood(root, depth, edges, withBacklinks) {
   const neighbors = new Map();
   for (const [from, to] of edges) {
     if (!neighbors.has(from)) neighbors.set(from, []);
     if (!neighbors.has(to)) neighbors.set(to, []);
     neighbors.get(from).push(to);
-    neighbors.get(to).push(from);
+    if (withBacklinks) neighbors.get(to).push(from);
   }
   const visible = new Set([root]);
   let frontier = [root];
@@ -358,6 +466,27 @@ function neighborhood(root, depth, edges) {
   return visible;
 }
 
+function fuzzyMatch(value, term) {
+  const text = value.toLowerCase();
+  let position = 0;
+  for (const character of term.toLowerCase()) {
+    position = text.indexOf(character, position);
+    if (position === -1) return false;
+    position++;
+  }
+  return true;
+}
+
+function matchesSearch(node, query) {
+  return query.every(term => {
+    if (term.startsWith('#')) {
+      const tag = term.slice(1);
+      return tag.length > 0 && node.tags.some(value => fuzzyMatch(value, tag));
+    }
+    return fuzzyMatch(node.title, term);
+  });
+}
+
 function filterGraph(fit = true) {
   let focusLost = false;
   if (focusRoot !== null && !allData.nodes.some(node => node.id === focusRoot)) {
@@ -369,10 +498,9 @@ function filterGraph(fit = true) {
   const input = search.value.trim().toLowerCase();
   const query = input.split(/\s+/).filter(Boolean);
   const focused = focusRoot === null ? null
-    : neighborhood(focusRoot, Number(generations.value), allData.edges);
+    : neighborhood(focusRoot, Number(generations.value), allData.edges, includeBacklinks);
   const nodes = allData.nodes.filter(node =>
-    (!focused || focused.has(node.id)) &&
-    query.every(tag => node.tags.some(value => value.toLowerCase() === tag))
+    (!focused || focused.has(node.id)) && matchesSearch(node, query)
   );
   const ids = new Set(nodes.map(node => node.id));
   draw(nodes, allData.edges.filter(([from, to]) => ids.has(from) && ids.has(to)));
@@ -485,7 +613,13 @@ def graph_data(directory: Path) -> dict[str, list]:
     }
 
 
-def make_handler(directory: Path, nvim_server: str | None) -> type[BaseHTTPRequestHandler]:
+def make_handler(
+    directory: Path, nvim_server: str | None, theme: str = "system"
+) -> type[BaseHTTPRequestHandler]:
+    if theme not in {"system", "light", "dark"}:
+        raise ValueError(f"Invalid theme: {theme}")
+    page = PAGE.replace('data-theme="system"', f'data-theme="{theme}"', 1)
+
     class Handler(BaseHTTPRequestHandler):
         def send(self, code: int, content: str, content_type: str = "text/plain") -> None:
             body = content.encode("utf-8")
@@ -498,7 +632,7 @@ def make_handler(directory: Path, nvim_server: str | None) -> type[BaseHTTPReque
 
         def do_GET(self) -> None:
             if self.path == "/":
-                self.send(200, PAGE, "text/html")
+                self.send(200, page, "text/html")
             elif self.path == "/graph":
                 try:
                     data = graph_data(directory)
@@ -557,13 +691,13 @@ def make_handler(directory: Path, nvim_server: str | None) -> type[BaseHTTPReque
 
 def run(
     directory: str, port: int = 8000, no_open: bool = False,
-    nvim_server: str | None = None,
+    nvim_server: str | None = None, theme: str = "system",
 ) -> None:
     typ_dir = Path(directory).resolve()
     if not typ_dir.is_dir():
         raise FileNotFoundError(f"Directory not found: {typ_dir}")
     graph_data(typ_dir)
-    handler = make_handler(typ_dir, nvim_server or os.environ.get("NVIM_LISTEN_ADDRESS"))
+    handler = make_handler(typ_dir, nvim_server or os.environ.get("NVIM_LISTEN_ADDRESS"), theme)
     with ThreadingHTTPServer(("127.0.0.1", port), handler) as server:
         url = f"http://127.0.0.1:{server.server_port}/"
         print(f"Serving live graph at {url} (Ctrl+C to stop)")
@@ -584,4 +718,10 @@ def add_subparser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser
     parser.add_argument("-p", "--port", type=int, default=8000, metavar="PORT")
     parser.add_argument("-n", "--no-open", action="store_true", help="Do not open the browser")
     parser.add_argument("--nvim-server", help="Neovim listen address (or set NVIM_LISTEN_ADDRESS)")
-    parser.set_defaults(func=lambda args: run(args.directory, args.port, args.no_open, args.nvim_server))
+    parser.add_argument(
+        "--theme", choices=("system", "light", "dark"), default="system",
+        help="Graph theme (default: %(default)s)",
+    )
+    parser.set_defaults(func=lambda args: run(
+        args.directory, args.port, args.no_open, args.nvim_server, args.theme,
+    ))
