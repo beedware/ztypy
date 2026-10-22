@@ -62,8 +62,6 @@ uv tool install .
 
 ## Debugging
 
-### VS Code (attach)
-
 Add `debugpy` as a dev dependency:
 
 ```bash
