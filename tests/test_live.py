@@ -52,6 +52,8 @@ class LiveTests(unittest.TestCase):
                         "seenPairs.has(key)", "bidirectional", "fitGraph()", "scale < 0.7",
                         "'text-anchor': 'middle'", "8 + 4 * Math.sqrt(degree.get(node.id)",
                         "fill: colorForFile(node.id)", "for (const character of `${id}.typ`)",
+                        "scale < 0.7 || (hovered && !connected.has(node.id))",
+                        "'paint-order': 'stroke'", "'font-weight': 'bold'",
                     ):
                         self.assertIn(interaction, page)
                     with urlopen(url + "/graph") as response:

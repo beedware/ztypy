@@ -99,9 +99,7 @@ function svgPoint(event) {
 
 function transform() {
   viewport.setAttribute('transform', `translate(${panX} ${panY}) scale(${scale})`);
-  for (const node of positions.values()) {
-    node.label.setAttribute('visibility', scale < 0.7 ? 'hidden' : 'visible');
-  }
+  highlight();
 }
 
 function fitGraph() {
@@ -191,6 +189,8 @@ function highlight() {
   }
   for (const node of positions.values()) {
     node.group.setAttribute('opacity', !hovered || connected.has(node.id) ? 1 : 0.3);
+    node.label.setAttribute('visibility',
+      scale < 0.7 || (hovered && !connected.has(node.id)) ? 'hidden' : 'visible');
   }
 }
 
@@ -241,6 +241,8 @@ function draw(nodes, edges) {
     group.append(element('circle', {r: position.radius, fill: colorForFile(node.id)}));
     const label = element('text', {
       x: 0, y: position.radius + 18, 'text-anchor': 'middle',
+      fill: '#143a75', stroke: 'white', 'stroke-width': 4,
+      'paint-order': 'stroke', 'font-weight': 'bold',
     });
     label.textContent = node.title;
     group.append(label);
