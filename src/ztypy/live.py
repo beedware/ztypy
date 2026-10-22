@@ -15,11 +15,21 @@ PAGE = r"""<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Graph</title></head>
 <body>
-<div><input id="search" type="search" aria-label="Search tags" placeholder="Search tags (tag_one tag_two)"></div>
+<div id="toolbar">
+  <input id="search" type="search" aria-label="Search tags" placeholder="Search tags (tag_one tag_two)">
+  <button id="direction" type="button" aria-label="Edge directions" title="Toggle edge directions" aria-pressed="true"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M2 10 H18 M13 5 L18 10 L13 15" fill="none" stroke="currentColor"/></svg></button>
+  <button id="focus" type="button" aria-label="Focus on descendants" title="Focus on descendants" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="5" r="2" fill="none" stroke="currentColor"/><circle cx="14" cy="14" r="2" fill="none" stroke="currentColor"/><path d="M6 6 L13 12 M9 12 H16" fill="none" stroke="currentColor"/></svg></button>
+</div>
+<label id="generation-control" hidden>Generations: <input id="generations" type="range" min="0" max="10" value="1"><output id="generation-count">1</output></label>
 <svg id="graph" role="img" aria-label="Graph"></svg>
 <script>
 const graph = document.getElementById('graph');
 const search = document.getElementById('search');
+const directionButton = document.getElementById('direction');
+const focusButton = document.getElementById('focus');
+const generationControl = document.getElementById('generation-control');
+const generations = document.getElementById('generations');
+const generationCount = document.getElementById('generation-count');
 const svgNS = 'http://www.w3.org/2000/svg';
 const defs = element('defs', {});
 const arrow = element('marker', {
@@ -44,11 +54,16 @@ let previous = '';
 let allData = {nodes: [], edges: []};
 let initialFit = false;
 let refitFrames = 0;
+let showDirection = true;
+let focusMode = false;
+let focusRoot = null;
 
 // Layout only; leave the browser's default colors and controls unchanged.
 document.body.style.margin = '0';
 graph.style.display = 'block';
-search.style.width = '100%';
+document.getElementById('toolbar').style.display = 'flex';
+search.style.flex = '1';
+search.style.minWidth = '0';
 search.style.boxSizing = 'border-box';
 
 function resizeGraph() {
@@ -90,6 +105,35 @@ async function openNote(id) {
   }
 }
 
+function selectNode(id) {
+  if (focusMode) {
+    focusRoot = id;
+    filterGraph();
+  } else {
+    openNote(id);
+  }
+}
+
+directionButton.addEventListener('click', () => {
+  showDirection = !showDirection;
+  directionButton.setAttribute('aria-pressed', String(showDirection));
+  updateArrows();
+});
+
+focusButton.addEventListener('click', () => {
+  focusMode = !focusMode;
+  focusRoot = null;
+  focusButton.setAttribute('aria-pressed', String(focusMode));
+  generationControl.hidden = !focusMode;
+  filterGraph();
+  resizeGraph();
+});
+
+generations.addEventListener('input', () => {
+  generationCount.value = generations.value;
+  if (focusRoot !== null) filterGraph();
+});
+
 function svgPoint(event) {
   const point = graph.createSVGPoint();
   point.x = event.clientX;
@@ -104,27 +148,19 @@ function transform() {
 
 function fitGraph() {
   if (!positions.size) return;
-  const bounds = includeLabels => [...positions.values()].reduce((box, node) => {
-    const halfWidth = includeLabels
-      ? Math.max(node.radius, node.label.getBBox().width / 2) : node.radius;
-    box.left = Math.min(box.left, node.x - halfWidth);
+  const box = [...positions.values()].reduce((box, node) => {
+    box.left = Math.min(box.left, node.x - node.radius);
     box.top = Math.min(box.top, node.y - node.radius);
-    box.right = Math.max(box.right, node.x + halfWidth);
-    box.bottom = Math.max(box.bottom, node.y + node.radius + (includeLabels ? 22 : 0));
+    box.right = Math.max(box.right, node.x + node.radius);
+    box.bottom = Math.max(box.bottom, node.y + node.radius);
     return box;
   }, {left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity});
   const width = graph.viewBox.baseVal.width;
   const height = graph.viewBox.baseVal.height;
-  const fitted = box => Math.min(
+  scale = Math.min(
     2, (width - 100) / Math.max(box.right - box.left, 160),
     (height - 100) / Math.max(box.bottom - box.top, 120),
   );
-  let box = bounds(true);
-  scale = fitted(box);
-  if (scale < 0.7) {
-    box = bounds(false);
-    scale = Math.min(0.69, fitted(box));
-  }
   panX = width / 2 - scale * (box.left + box.right) / 2;
   panY = height / 2 - scale * (box.top + box.bottom) / 2;
   transform();
@@ -176,7 +212,7 @@ graph.addEventListener('pointerup', event => {
   const selected = drag.kind === 'node' && !drag.moved ? drag.id : null;
   drag = null;
   if (graph.hasPointerCapture(event.pointerId)) graph.releasePointerCapture(event.pointerId);
-  if (selected) openNote(selected);
+  if (selected) selectNode(selected);
 });
 graph.addEventListener('pointercancel', () => { drag = null; });
 
@@ -190,7 +226,15 @@ function highlight() {
   for (const node of positions.values()) {
     node.group.setAttribute('opacity', !hovered || connected.has(node.id) ? 1 : 0.3);
     node.label.setAttribute('visibility',
-      scale < 0.7 || (hovered && !connected.has(node.id)) ? 'hidden' : 'visible');
+      hovered && connected.has(node.id) ? 'visible' : 'hidden');
+  }
+}
+
+function updateArrows() {
+  for (const link of links) {
+    link.path.setAttribute('marker-end', showDirection ? 'url(#link-arrow)' : 'none');
+    link.path.setAttribute('marker-start',
+      showDirection && link.bidirectional ? 'url(#link-arrow)' : 'none');
   }
 }
 
@@ -225,23 +269,22 @@ function draw(nodes, edges) {
     if (seenPairs.has(key)) continue;
     seenPairs.add(key);
     const bidirectional = from !== to && pairs.has(`${to}:${from}`);
-    const path = element('path', {
-      fill: 'none', stroke: 'black', 'marker-end': 'url(#link-arrow)',
-      ...(bidirectional ? {'marker-start': 'url(#link-arrow)'} : {}),
-    });
+    const path = element('path', {fill: 'none', stroke: 'black'});
     linksLayer.append(path);
     links.push({from, to, path, bidirectional});
   }
+  updateArrows();
   for (const node of nodes) {
     const position = positions.get(node.id);
     position.radius = Math.min(36, 8 + 4 * Math.sqrt(degree.get(node.id) ?? 0));
     const group = element('g', {
-      'data-id': node.id, tabindex: '0', role: 'button', 'aria-label': `Open ${node.title}`,
+      'data-id': node.id, tabindex: '0', role: 'button',
+      'aria-label': `${focusMode ? 'Focus on' : 'Open'} ${node.title}`,
     });
     group.append(element('circle', {r: position.radius, fill: colorForFile(node.id)}));
     const label = element('text', {
       x: 0, y: position.radius + 18, 'text-anchor': 'middle',
-      fill: '#143a75', stroke: 'white', 'stroke-width': 4,
+      fill: 'black', stroke: 'white', 'stroke-width': 4,
       'paint-order': 'stroke', 'font-weight': 'bold',
     });
     label.textContent = node.title;
@@ -259,7 +302,7 @@ function draw(nodes, edges) {
     group.addEventListener('keydown', event => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        openNote(node.id);
+        selectNode(node.id);
       }
     });
     position.group = group;
@@ -278,10 +321,38 @@ function draw(nodes, edges) {
   }
 }
 
+function descendants(root, depth, edges) {
+  const children = new Map();
+  for (const [from, to] of edges) {
+    if (!children.has(from)) children.set(from, []);
+    children.get(from).push(to);
+  }
+  const visible = new Set([root]);
+  let frontier = [root];
+  for (let generation = 0; generation < depth && frontier.length; generation++) {
+    const next = [];
+    for (const parent of frontier) {
+      for (const child of children.get(parent) ?? []) {
+        if (visible.has(child)) continue;
+        visible.add(child);
+        next.push(child);
+      }
+    }
+    frontier = next;
+  }
+  return visible;
+}
+
 function filterGraph(fit = true) {
+  if (focusRoot !== null && !allData.nodes.some(node => node.id === focusRoot)) {
+    focusRoot = null;
+  }
   const input = search.value.trim().toLowerCase();
   const query = input.split(/\s+/).filter(Boolean);
+  const focused = focusRoot === null ? null
+    : descendants(focusRoot, Number(generations.value), allData.edges);
   const nodes = allData.nodes.filter(node =>
+    (!focused || focused.has(node.id)) &&
     query.every(tag => node.tags.some(value => value.toLowerCase() === tag))
   );
   const ids = new Set(nodes.map(node => node.id));

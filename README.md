@@ -24,18 +24,22 @@ uv run ztypy generate layout.txt --output-dir output
 intermediate text file or external JavaScript service is needed. The graph fills
 the browser window below the search bar and resizes with it. The graph uses
 force-based layout: scroll to zoom, drag the background to pan, drag notes to
-rearrange them, and hover to highlight a note's connections while hiding other
-titles. Arrows point from
+rearrange them, and hover to reveal a note's title and its connected notes'
+titles at any zoom level. Titles are otherwise hidden. Arrows point from
 each note to the notes it links to; reciprocal links share one line with arrows
 at both ends. Nodes have stable colors based on their
 filenames; nodes with more incoming or outgoing links are larger, with
-high-contrast titles centered beneath them. The initial view fits the graph,
-and labels disappear when zoomed out. The search bar matches whole tags from
+high-contrast titles centered beneath them when hovered. The initial view fits
+the graph. The search bar matches whole tags from
 each note's colon-delimited tag line (for example, `:tag_one:tag_two:`).
 The search bar's placeholder shows the space-separated format, such as
-`tag_one tag_two`. All entered tags must match. Click a note
-(or focus it and press Enter) to open
-its file in an existing Neovim instance.
+`tag_one tag_two`. All entered tags must match. The arrow icon to the right of
+search toggles edge arrowheads (the lines stay visible). The other icon toggles
+descendant focus: when enabled, click a note to show only that note and its
+outgoing children, up to the selected number of generations (0–10). Click a
+visible child to focus on it instead; turn off the icon to restore the full
+graph. Outside focus mode, clicking a note (or focusing it and pressing Enter)
+opens its file in an existing Neovim instance.
 
 To enable note clicks, start Neovim with a local server socket, then pass the
 same address to `live`:

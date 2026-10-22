@@ -49,22 +49,28 @@ class LiveTests(unittest.TestCase):
                     for interaction in (
                         "requestAnimationFrame(animate)", "pointerdown", "wheel", "highlight()",
                         "marker-end", "marker-start", "auto-start-reverse",
-                        "seenPairs.has(key)", "bidirectional", "fitGraph()", "scale < 0.7",
+                        "seenPairs.has(key)", "bidirectional", "fitGraph()",
                         "'text-anchor': 'middle'", "8 + 4 * Math.sqrt(degree.get(node.id)",
                         "fill: colorForFile(node.id)", "for (const character of `${id}.typ`)",
-                        "scale < 0.7 || (hovered && !connected.has(node.id))",
+                        "hovered && connected.has(node.id) ? 'visible' : 'hidden'",
                         "'paint-order': 'stroke'", "'font-weight': 'bold'",
+                        "fill: 'black', stroke: 'white'",
+                        "showDirection && link.bidirectional", "function descendants(root, depth, edges)",
+                        "focusRoot = id", "if (selected) selectNode(selected)",
                     ):
                         self.assertIn(interaction, page)
                     with urlopen(url + "/graph") as response:
                         data = json.load(response)
                     self.assertEqual(data["nodes"], [{"id": note.stem, "title": "<Note>", "tags": []}])
                     self.assertIn('id="search"', page)
+                    self.assertIn('id="direction" type="button"', page)
+                    self.assertIn('id="focus" type="button"', page)
+                    self.assertIn('id="generations" type="range" min="0" max="10" value="1"', page)
                     self.assertIn('id="search" type="search" aria-label="Search tags"', page)
                     self.assertIn('placeholder="Search tags (tag_one tag_two)"', page)
                     self.assertIn('<title>Graph</title>', page)
                     self.assertNotIn('id="settings"', page)
-                    self.assertIn("search.style.width = '100%'", page)
+                    self.assertIn("search.style.flex = '1'", page)
                     self.assertIn("window.addEventListener('resize', resizeGraph)", page)
                     self.assertIn('window.innerHeight - graph.getBoundingClientRect().top', page)
                     self.assertIn("value.toLowerCase() === tag", page)
