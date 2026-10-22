@@ -5,8 +5,8 @@ Python CLI for my zettelkasten system using Typst.
 ## Project layout
 
 - `src/ztypy/cli.py` - CLI entry point
-- `src/ztypy/txtify.py` - `.typ` files to adjacency text
-- `src/ztypy/view.py` - adjacency text to interactive graph view
+- `src/ztypy/live.py` - live local graph and Neovim integration
+- `src/ztypy/txtify.py` - Typst note parser
 - `src/ztypy/slipify.py` - adjacency text to generated `.typ` notes
 - `tests/` - `unittest` test suite
 
@@ -15,13 +15,37 @@ Python CLI for my zettelkasten system using Typst.
 Run commands from the repo root:
 
 ```bash
-uv run ztypy txtify slipbox
-uv run ztypy view slipbox/output.txt --port 8000
-uv run ztypy slipify layout.txt --output-dir output
+uv run ztypy live slipbox --port 8000
+uv run ztypy generate layout.txt --output-dir output
 ```
 
-Links in a note's `= Links` section use `- YYYYMMDDHHMMSS:Title`, for example
-`- 20261022140066:Group action`. The ID identifies the target note; the title
+`live` reads `.typ` files from the given directory and serves a graph at
+`http://127.0.0.1:8000/`. The browser checks for changes every second; no
+intermediate text file or external JavaScript service is needed. The graph uses
+force-based layout: scroll to zoom, drag the background to pan, drag notes to
+rearrange them, and hover to highlight a note's connections. Arrows point from
+each note to the notes it links to. Nodes with more incoming or outgoing links
+are larger, with titles centered beneath them. The initial view fits the graph,
+and labels disappear when zoomed out. The search bar filters by colon-delimited
+tags in each note (for example, `:tag1:tag2:`); multiple search terms must
+all match. Click a note (or
+focus it and press Enter) to open its file in an existing Neovim instance.
+
+To enable note clicks, start Neovim with a local server socket, then pass the
+same address to `live`:
+
+```bash
+nvim --listen /tmp/ztypy-nvim.sock
+uv run ztypy live slipbox --nvim-server /tmp/ztypy-nvim.sock
+```
+
+Alternatively set `NVIM_LISTEN_ADDRESS=/tmp/ztypy-nvim.sock` when launching
+`ztypy live`. Neovim must be installed, running, and accessible at that socket.
+Use `--no-open` to avoid opening the browser automatically. The web server
+listens only on localhost; keep the Neovim socket private to your user.
+
+Links in a note's `= Links` section use `- YYYYMMDDHHMMSS` or
+`- YYYYMMDDHHMMSS:Title`. The ID identifies the target note; the optional title
 labels it for readers.
 
 ## Run tests

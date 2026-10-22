@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,7 +27,14 @@ class TxtifyTests(unittest.TestCase):
             "- 20260101010105:   \n- 20260101010106extra:Bad\n"
         )
         self.assertEqual(
-            txtify.extract_links(content), ["20260101010101", "20260101010102"]
+            txtify.extract_links(content),
+            ["20260101010101", "20260101010102", "20260101010103"],
+        )
+
+    def test_extract_tags_from_colon_delimited_line(self) -> None:
+        self.assertEqual(
+            txtify.extract_tags('#let title = "A"\n:theorem:algebra:\n= Links\n- 20260101010101:Title\n'),
+            ["theorem", "algebra"],
         )
 
     def test_extract_children_ids_stops_at_next_heading(self) -> None:
@@ -173,27 +179,6 @@ class TxtifyTests(unittest.TestCase):
 
             self.assertIn("B", content)
             self.assertIn("A", content)
-
-    def test_add_subparser_registers_txtify(self) -> None:
-        parser = argparse.ArgumentParser()
-        subs = parser.add_subparsers(dest="command")
-
-        txtify.add_subparser(subs)
-
-        args = parser.parse_args(["txtify", "."])
-
-        self.assertTrue(callable(args.func))
-
-    def test_add_subparser_accepts_backlinks_flag(self) -> None:
-        parser = argparse.ArgumentParser()
-        subs = parser.add_subparsers(dest="command")
-
-        txtify.add_subparser(subs)
-
-        args = parser.parse_args(["txtify", ".", "--backlinks"])
-
-        self.assertTrue(args.backlinks)
-
 
 if __name__ == "__main__":
     unittest.main()

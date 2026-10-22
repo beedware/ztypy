@@ -1,0 +1,459 @@
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+from ztypy import txtify
+
+
+PAGE = r"""<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Slipbox graph</title></head>
+<body>
+<input id="search" type="search" placeholder="Filter tags" aria-label="Filter tags">
+<svg id="graph" width="100%" height="700" viewBox="0 0 1000 700" role="img" aria-label="Note graph"></svg>
+<script>
+const graph = document.getElementById('graph');
+const search = document.getElementById('search');
+const svgNS = 'http://www.w3.org/2000/svg';
+const defs = element('defs', {});
+const arrow = element('marker', {
+  id: 'link-arrow', viewBox: '0 0 10 10', refX: 9, refY: 5,
+  markerWidth: 10, markerHeight: 10, markerUnits: 'userSpaceOnUse', orient: 'auto',
+});
+arrow.append(element('path', {d: 'M 0 0 L 10 5 L 0 10 Z', fill: 'black'}));
+defs.append(arrow);
+graph.append(defs);
+const viewport = element('g', {});
+const linksLayer = element('g', {});
+const nodesLayer = element('g', {});
+viewport.append(linksLayer, nodesLayer);
+graph.append(viewport);
+const positions = new Map();
+let links = [];
+let hovered = null;
+let drag = null;
+let scale = 1, panX = 0, panY = 0;
+let energy = 0;
+let previous = '';
+let allData = {nodes: [], edges: []};
+let initialFit = false;
+let refitFrames = 0;
+
+function element(tag, attributes) {
+  const node = document.createElementNS(svgNS, tag);
+  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
+  return node;
+}
+
+async function openNote(id) {
+  try {
+    const response = await fetch('/open', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id}),
+    });
+    if (!response.ok) throw new Error(await response.text());
+  } catch (error) {
+    console.error('Could not open note:', error);
+  }
+}
+
+function svgPoint(event) {
+  const point = graph.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  return point.matrixTransform(graph.getScreenCTM().inverse());
+}
+
+function transform() {
+  viewport.setAttribute('transform', `translate(${panX} ${panY}) scale(${scale})`);
+  for (const node of positions.values()) {
+    node.label.setAttribute('visibility', scale < 0.7 ? 'hidden' : 'visible');
+  }
+}
+
+function fitGraph() {
+  if (!positions.size) return;
+  const bounds = includeLabels => [...positions.values()].reduce((box, node) => {
+    const halfWidth = includeLabels
+      ? Math.max(node.radius, node.label.getBBox().width / 2) : node.radius;
+    box.left = Math.min(box.left, node.x - halfWidth);
+    box.top = Math.min(box.top, node.y - node.radius);
+    box.right = Math.max(box.right, node.x + halfWidth);
+    box.bottom = Math.max(box.bottom, node.y + node.radius + (includeLabels ? 22 : 0));
+    return box;
+  }, {left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity});
+  const width = graph.viewBox.baseVal.width;
+  const height = graph.viewBox.baseVal.height;
+  const fitted = box => Math.min(
+    2, (width - 100) / Math.max(box.right - box.left, 160),
+    (height - 100) / Math.max(box.bottom - box.top, 120),
+  );
+  let box = bounds(true);
+  scale = fitted(box);
+  if (scale < 0.7) {
+    box = bounds(false);
+    scale = Math.min(0.69, fitted(box));
+  }
+  panX = width / 2 - scale * (box.left + box.right) / 2;
+  panY = height / 2 - scale * (box.top + box.bottom) / 2;
+  transform();
+}
+
+graph.addEventListener('wheel', event => {
+  event.preventDefault();
+  refitFrames = 0;
+  const point = svgPoint(event);
+  const next = Math.max(0.2, Math.min(5, scale * Math.exp(-event.deltaY * 0.001)));
+  panX = point.x - (point.x - panX) * next / scale;
+  panY = point.y - (point.y - panY) * next / scale;
+  scale = next;
+  transform();
+}, {passive: false});
+
+graph.addEventListener('pointerdown', event => {
+  if (event.button !== 0 || event.target.closest('[data-id]')) return;
+  refitFrames = 0;
+  drag = {kind: 'pan', point: svgPoint(event), x: panX, y: panY};
+  graph.setPointerCapture(event.pointerId);
+});
+
+graph.addEventListener('pointermove', event => {
+  if (!drag) return;
+  const point = svgPoint(event);
+  if (drag.kind === 'pan') {
+    panX = drag.x + point.x - drag.point.x;
+    panY = drag.y + point.y - drag.point.y;
+    transform();
+  } else {
+    const node = positions.get(drag.id);
+    if (!node) return;
+    if (Math.hypot(event.clientX - drag.clientX, event.clientY - drag.clientY) > 4) {
+      drag.moved = true;
+    }
+    if (drag.moved) {
+      node.x = (point.x - panX) / scale;
+      node.y = (point.y - panY) / scale;
+      node.vx = node.vy = 0;
+      energy = 1;
+      render();
+    }
+  }
+});
+
+graph.addEventListener('pointerup', event => {
+  if (!drag) return;
+  const selected = drag.kind === 'node' && !drag.moved ? drag.id : null;
+  drag = null;
+  if (graph.hasPointerCapture(event.pointerId)) graph.releasePointerCapture(event.pointerId);
+  if (selected) openNote(selected);
+});
+graph.addEventListener('pointercancel', () => { drag = null; });
+
+function highlight() {
+  const connected = new Set([hovered]);
+  for (const link of links) {
+    if (link.from === hovered) connected.add(link.to);
+    if (link.to === hovered) connected.add(link.from);
+    link.path.setAttribute('opacity', !hovered || link.from === hovered || link.to === hovered ? 1 : 0.15);
+  }
+  for (const node of positions.values()) {
+    node.group.setAttribute('opacity', !hovered || connected.has(node.id) ? 1 : 0.3);
+  }
+}
+
+function draw(nodes, edges) {
+  const degree = new Map();
+  for (const [from, to] of allData.edges) {
+    degree.set(from, (degree.get(from) ?? 0) + 1);
+    if (to !== from) degree.set(to, (degree.get(to) ?? 0) + 1);
+  }
+  const ids = new Set(nodes.map(node => node.id));
+  for (const id of positions.keys()) if (!ids.has(id)) positions.delete(id);
+  for (const [index, node] of nodes.entries()) {
+    if (!positions.has(node.id)) {
+      const neighbor = edges.find(([a, b]) => (a === node.id && positions.has(b)) || (b === node.id && positions.has(a)));
+      const anchor = neighbor && positions.get(neighbor[0] === node.id ? neighbor[1] : neighbor[0]);
+      const angle = index * 2.4;
+      positions.set(node.id, {
+        id: node.id, x: (anchor?.x ?? 500) + 70 * Math.cos(angle),
+        y: (anchor?.y ?? 350) + 70 * Math.sin(angle), vx: 0, vy: 0,
+      });
+    }
+  }
+  if (drag?.kind === 'node' && !positions.has(drag.id)) drag = null;
+  linksLayer.replaceChildren();
+  nodesLayer.replaceChildren();
+  const pairs = new Set(edges.map(([from, to]) => `${from}:${to}`));
+  links = edges.filter(([a, b]) => positions.has(a) && positions.has(b)).map(([from, to]) => {
+    const path = element('path', {
+      fill: 'none', stroke: 'black', 'marker-end': 'url(#link-arrow)',
+    });
+    linksLayer.append(path);
+    return {from, to, path, reciprocal: pairs.has(`${to}:${from}`) && from !== to};
+  });
+  for (const node of nodes) {
+    const position = positions.get(node.id);
+    position.radius = Math.min(24, 6 + 2 * Math.sqrt(degree.get(node.id) ?? 0));
+    const group = element('g', {
+      'data-id': node.id, tabindex: '0', role: 'button', 'aria-label': `Open ${node.title}`,
+    });
+    group.append(element('circle', {r: position.radius, fill: 'black'}));
+    const label = element('text', {
+      x: 0, y: position.radius + 18, 'text-anchor': 'middle',
+    });
+    label.textContent = node.title;
+    group.append(label);
+    position.label = label;
+    group.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      event.stopPropagation();
+      refitFrames = 0;
+      drag = {kind: 'node', id: node.id, clientX: event.clientX, clientY: event.clientY, moved: false};
+      graph.setPointerCapture(event.pointerId);
+    });
+    group.addEventListener('pointerenter', () => { hovered = node.id; highlight(); });
+    group.addEventListener('pointerleave', () => { hovered = null; highlight(); });
+    group.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openNote(node.id);
+      }
+    });
+    position.group = group;
+    nodesLayer.append(group);
+  }
+  if (!positions.has(hovered)) hovered = null;
+  highlight();
+  energy = 1;
+  render();
+  if (!initialFit && nodes.length) {
+    initialFit = true;
+    fitGraph();
+    refitFrames = 45;
+  } else {
+    transform();
+  }
+}
+
+function filterGraph(fit = true) {
+  const query = search.value.toLowerCase().split(/[\s:]+/).filter(Boolean);
+  const nodes = allData.nodes.filter(node =>
+    query.every(tag => node.tags.some(value => value.toLowerCase().includes(tag)))
+  );
+  const ids = new Set(nodes.map(node => node.id));
+  draw(nodes, allData.edges.filter(([from, to]) => ids.has(from) && ids.has(to)));
+  if (fit && nodes.length) fitGraph();
+}
+
+search.addEventListener('input', () => filterGraph());
+
+function render() {
+  for (const link of links) {
+    const a = positions.get(link.from), b = positions.get(link.to);
+    if (a === b) {
+      const r = a.radius;
+      link.path.setAttribute('d', `M ${a.x + r * 0.7} ${a.y - r * 0.7} C ${a.x + r + 40} ${a.y - r - 60}, ${a.x - r - 40} ${a.y - r - 60}, ${a.x - r * 0.7} ${a.y - r * 0.7}`);
+    } else {
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const distance = Math.max(Math.hypot(dx, dy), 1);
+      const ux = dx / distance, uy = dy / distance;
+      const startX = a.x + ux * (a.radius + 2), startY = a.y + uy * (a.radius + 2);
+      const endX = b.x - ux * (b.radius + 5), endY = b.y - uy * (b.radius + 5);
+      const curve = link.reciprocal
+        ? `Q ${(a.x + b.x) / 2 - uy * 30} ${(a.y + b.y) / 2 + ux * 30}`
+        : 'L';
+      link.path.setAttribute('d', `M ${startX} ${startY} ${curve} ${endX} ${endY}`);
+    }
+  }
+  for (const node of positions.values()) {
+    node.group.setAttribute('transform', `translate(${node.x} ${node.y})`);
+  }
+}
+
+function animate() {
+  if (energy > 0.001) {
+    const nodes = [...positions.values()];
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i];
+      a.vx += (500 - a.x) * 0.0003;
+      a.vy += (350 - a.y) * 0.0003;
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const distance2 = Math.max(dx * dx + dy * dy, 100);
+        const force = 3000 / (distance2 * Math.sqrt(distance2));
+        a.vx += dx * force; a.vy += dy * force;
+        b.vx -= dx * force; b.vy -= dy * force;
+      }
+    }
+    for (const link of links) {
+      const a = positions.get(link.from), b = positions.get(link.to);
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const distance = Math.max(Math.hypot(dx, dy), 1);
+      const force = (distance - 120) * 0.003;
+      a.vx += dx / distance * force; a.vy += dy / distance * force;
+      b.vx -= dx / distance * force; b.vy -= dy / distance * force;
+    }
+    for (const node of nodes) {
+      if (drag?.kind === 'node' && drag.id === node.id) continue;
+      node.vx *= 0.8; node.vy *= 0.8;
+      node.x += node.vx; node.y += node.vy;
+    }
+    render();
+    if (refitFrames > 0 && --refitFrames === 0) fitGraph();
+    energy *= 0.995;
+  }
+  requestAnimationFrame(animate);
+}
+
+async function refresh() {
+  try {
+    const response = await fetch('/graph', {cache: 'no-store'});
+    if (!response.ok) throw new Error(await response.text());
+    const data = await response.json();
+    const snapshot = JSON.stringify(data);
+    if (snapshot !== previous) {
+      allData = data;
+      filterGraph(false);
+      previous = snapshot;
+    }
+  } catch (error) {
+    console.error('Could not load notes:', error);
+  }
+}
+
+refresh();
+setInterval(refresh, 1000);
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
+"""
+
+
+def graph_data(directory: Path) -> dict[str, list]:
+    if not any(directory.glob("*.typ")):
+        return {"nodes": [], "edges": []}
+    nodes = txtify.load_nodes_from_directory(directory)
+    ordered = [nodes[note_id] for note_id in sorted(nodes)]
+    return {
+        "nodes": [
+            {"id": node.note_id, "title": node.title, "tags": node.tags}
+            for node in ordered
+        ],
+        "edges": [
+            [node.note_id, link]
+            for node in ordered
+            for link in dict.fromkeys(node.links)
+            if link in nodes
+        ],
+    }
+
+
+def make_handler(directory: Path, nvim_server: str | None) -> type[BaseHTTPRequestHandler]:
+    class Handler(BaseHTTPRequestHandler):
+        def send(self, code: int, content: str, content_type: str = "text/plain") -> None:
+            body = content.encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:
+            if self.path == "/":
+                self.send(200, PAGE, "text/html")
+            elif self.path == "/graph":
+                try:
+                    data = graph_data(directory)
+                except (ValueError, OSError) as error:
+                    self.send(503, str(error))
+                    return
+                self.send(200, json.dumps(data), "application/json")
+            else:
+                self.send(404, "Not found")
+
+        def do_POST(self) -> None:
+            if self.path != "/open":
+                self.send(404, "Not found")
+                return
+            origin = self.headers.get("Origin")
+            host = f"127.0.0.1:{self.server.server_port}"
+            if origin != f"http://{host}" or self.headers.get("Host") != host:
+                self.send(403, "Invalid origin")
+                return
+            if self.headers.get("Content-Type") != "application/json":
+                self.send(415, "Expected JSON")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 0 < length <= 4096:
+                    raise ValueError("Invalid request size")
+                note_id = json.loads(self.rfile.read(length))["id"]
+                if not isinstance(note_id, str) or note_id not in {
+                    node["id"] for node in graph_data(directory)["nodes"]
+                }:
+                    raise ValueError("Unknown note")
+            except (ValueError, KeyError, TypeError, OSError) as error:
+                self.send(400, str(error))
+                return
+            if not nvim_server:
+                self.send(503, "Set --nvim-server or NVIM_LISTEN_ADDRESS")
+                return
+            try:
+                subprocess.run(
+                    [
+                        "nvim", "--server", nvim_server, "--remote",
+                        str(directory / f"{note_id}.typ"),
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+            except (OSError, subprocess.SubprocessError) as error:
+                self.send(502, f"Neovim remote failed: {error}")
+                return
+            self.send(200, "Opened")
+
+    return Handler
+
+
+def run(
+    directory: str, port: int = 8000, no_open: bool = False,
+    nvim_server: str | None = None,
+) -> None:
+    typ_dir = Path(directory).resolve()
+    if not typ_dir.is_dir():
+        raise FileNotFoundError(f"Directory not found: {typ_dir}")
+    graph_data(typ_dir)
+    handler = make_handler(typ_dir, nvim_server or os.environ.get("NVIM_LISTEN_ADDRESS"))
+    with ThreadingHTTPServer(("127.0.0.1", port), handler) as server:
+        url = f"http://127.0.0.1:{server.server_port}/"
+        print(f"Serving live graph at {url} (Ctrl+C to stop)")
+        if not no_open:
+            webbrowser.open(url)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+
+
+def add_subparser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    parser = subparsers.add_parser(
+        "live", help="Watch Typst notes and show a live graph in the browser",
+        description="Serve a local graph that refreshes as Typst notes change.",
+    )
+    parser.add_argument("directory", metavar="DIR", help="Directory containing .typ notes")
+    parser.add_argument("-p", "--port", type=int, default=8000, metavar="PORT")
+    parser.add_argument("-n", "--no-open", action="store_true", help="Do not open the browser")
+    parser.add_argument("--nvim-server", help="Neovim listen address (or set NVIM_LISTEN_ADDRESS)")
+    parser.set_defaults(func=lambda args: run(args.directory, args.port, args.no_open, args.nvim_server))

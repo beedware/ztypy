@@ -97,11 +97,11 @@ class SlipifyTests(unittest.TestCase):
 
             self.assertTrue((root / "layout.slip.txt").exists())
 
-    def test_add_subparser_registers_slipify(self) -> None:
+    def test_add_subparser_registers_generate(self) -> None:
         parser = argparse.ArgumentParser()
         subs = parser.add_subparsers(dest="command")
         slipify.add_subparser(subs)
-        args = parser.parse_args(["slipify", "layout.txt"])
+        args = parser.parse_args(["generate", "layout.txt"])
         self.assertTrue(callable(args.func))
 
 

@@ -145,7 +145,7 @@ def add_subparser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     parser = subparsers.add_parser(
-        "slipify",
+        "generate",
         help="Generate Typst slipbox files from an adjacency layout",
         description=(
             "Convert an adjacency-list text file into a collection of "

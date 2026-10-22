@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import argparse
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 FILENAME_RE = re.compile(r"^(\d{14})\.typ$")
 TITLE_RE = re.compile(r'^#let\s+title\s*=\s*"(.*)"\s*$')
+TAGS_RE = re.compile(r":(?:[^\s:]+:)+")
 
 
 @dataclass
@@ -15,6 +15,7 @@ class Node:
     title: str
     links: list[str]
     backlinks: list[str]
+    tags: list[str] = field(default_factory=list)
 
 
 def extract_title(content: str, file_path: Path) -> str:
@@ -45,11 +46,20 @@ def extract_links(content: str) -> list[str]:
         if stripped.startswith(("=", "#bibliography")):
             break
         if stripped.startswith("- "):
-            match = re.fullmatch(r"(\d{14}):(.+)", stripped[2:])
-            if match and match.group(2).strip():
+            match = re.fullmatch(r"(\d{14})(?::(.+))?", stripped[2:])
+            if match and (match.group(2) is None or match.group(2).strip()):
                 links.append(match.group(1))
 
     return links
+
+
+def extract_tags(content: str) -> list[str]:
+    tags: dict[str, None] = {}
+    for line in content.splitlines():
+        stripped = line.strip()
+        if TAGS_RE.fullmatch(stripped):
+            tags.update(dict.fromkeys(stripped.strip(":").split(":")))
+    return list(tags)
 
 
 def populate_backlinks(nodes: dict[str, Node]) -> None:
@@ -77,7 +87,10 @@ def load_nodes_from_directory(typ_dir: Path) -> dict[str, Node]:
         content = path.read_text(encoding="utf-8")
         title = extract_title(content, path)
         links = extract_links(content)
-        nodes[note_id] = Node(note_id=note_id, title=title, links=links, backlinks=[])
+        nodes[note_id] = Node(
+            note_id=note_id, title=title, links=links, backlinks=[],
+            tags=extract_tags(content),
+        )
 
     if invalid_names:
         invalid_list = "\n".join(f"- {name}" for name in invalid_names)
@@ -129,33 +142,3 @@ def run(directory: str, backlinks: bool = False) -> Path:
     print(f"Wrote {mode} to {output_path}")
 
     return output_path
-
-
-def add_subparser(
-    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
-) -> None:
-    parser = subparsers.add_parser(
-        "txtify",
-        help="Convert Typst notes into an adjacency text file",
-        description=(
-            "Read a directory of Typst slipbox notes and produce an adjacency-list "
-            "or backlink text file."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False,
-    )
-    parser.add_argument(
-        "-h", "--help", action="help", help="Show this help message and exit"
-    )
-    parser.add_argument(
-        "directory",
-        metavar="DIR",
-        help="Directory containing .typ files",
-    )
-    parser.add_argument(
-        "-b",
-        "--backlinks",
-        action="store_true",
-        help="Generate backlinks instead of outgoing links",
-    )
-    parser.set_defaults(func=lambda args: run(args.directory, args.backlinks))
