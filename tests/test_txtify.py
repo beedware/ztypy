@@ -21,13 +21,18 @@ class TxtifyTests(unittest.TestCase):
         self.assertEqual(txtify.extract_links("# nothing\n"), [])
 
     def test_extract_children_ids_reads_only_valid_ids(self) -> None:
-        content = "= Links\n- 20260101010101\n- bad\n- 20260101010102\n"
+        content = (
+            "= Links\n- 20260101010101:Group action\n- bad\n"
+            "- 20260101010102:Title: with colon\n"
+            "- 20260101010103\n- 20260101010104:\n"
+            "- 20260101010105:   \n- 20260101010106extra:Bad\n"
+        )
         self.assertEqual(
             txtify.extract_links(content), ["20260101010101", "20260101010102"]
         )
 
     def test_extract_children_ids_stops_at_next_heading(self) -> None:
-        content = "= Links\n- 20260101010101\n= Next\n- 20260101010102\n"
+        content = "= Links\n- 20260101010101:First\n= Next\n- 20260101010102:Second\n"
         self.assertEqual(txtify.extract_links(content), ["20260101010101"])
 
     def test_populate_backlinks(self) -> None:
@@ -85,7 +90,7 @@ class TxtifyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             root.joinpath("20260101010101.typ").write_text(
-                '#let title = "Source"\n= Links\n- 20260101010102\n',
+                '#let title = "Source"\n= Links\n- 20260101010102:Target\n',
                 encoding="utf-8",
             )
             root.joinpath("20260101010102.typ").write_text(
@@ -151,7 +156,7 @@ class TxtifyTests(unittest.TestCase):
             temp_path = Path(temp_dir)
 
             (temp_path / "20260101010101.typ").write_text(
-                '#let title = "A"\n= Links\n- 20260101010102\n',
+                '#let title = "A"\n= Links\n- 20260101010102:B\n',
                 encoding="utf-8",
             )
 

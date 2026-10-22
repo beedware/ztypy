@@ -15,7 +15,7 @@ Latency gaps matter when applying ideas from @01-5[p.~23].
 )
 
 = Links
-- 20260429150004
-- 20260429150007
+- 20260429150004:TCP Throughput Back-of-the-Envelope
+- 20260429150007:C++ Value Category Notes
 
 #bibliography(".utility/sources.yaml")

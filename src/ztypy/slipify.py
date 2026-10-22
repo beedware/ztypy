@@ -78,15 +78,19 @@ def phase_3_add_links(
     output_dir: Path, notes: dict[str, Note], adjacency: dict[str, list[str]]
 ) -> None:
     for title, note in notes.items():
-        child_ids: set[str] = set()
+        child_links: set[tuple[str, str]] = set()
         for child in adjacency.get(title, []):
-            child_ids.add(notes[child].note_id)
+            child_note = notes[child]
+            child_links.add((child_note.note_id, child_note.title))
 
         file_path = output_dir / f"{note.note_id}.typ"
         content = file_path.read_text(encoding="utf-8")
 
-        if child_ids:
-            links_block = "\n".join(f"- {link_id}" for link_id in sorted(child_ids))
+        if child_links:
+            links_block = "\n".join(
+                f"- {link_id}:{link_title}"
+                for link_id, link_title in sorted(child_links)
+            )
         else:
             links_block = ""
 

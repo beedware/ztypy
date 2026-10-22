@@ -15,8 +15,8 @@ $ "throughput" approx "cwnd" / "rtt" $.
 If congestion window doubles each RTT in slow start, growth is exponential.
 
 = Links
-- 20260429150003
-- 20260429150006
-- 20260429150001
+- 20260429150003:Automata Snapshot
+- 20260429150006:Memory Hierarchy Diagram
+- 20260429150001:Algorithmic Growth Notes
 
 #bibliography(".utility/sources.yaml")

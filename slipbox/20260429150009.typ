@@ -17,7 +17,7 @@ Visual memory hook for @01-9[p.~28].
 Fusion idea (informal): combine adjacent traversals to reduce passes.
 
 = Links
-- 20260429150008
-- 20260429150010
+- 20260429150008:Scala Type Inference Fragments
+- 20260429150010:PL Concepts Summary Card
 
 #bibliography(".utility/sources.yaml")

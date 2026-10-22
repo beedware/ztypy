@@ -20,6 +20,10 @@ uv run ztypy view slipbox/output.txt --port 8000
 uv run ztypy slipify layout.txt --output-dir output
 ```
 
+Links in a note's `= Links` section use `- YYYYMMDDHHMMSS:Title`, for example
+`- 20261022140066:Group action`. The ID identifies the target note; the title
+labels it for readers.
+
 ## Run tests
 
 ```bash

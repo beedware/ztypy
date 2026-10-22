@@ -18,7 +18,7 @@ $ e_1 ~= e_2 $ when both reduce to the same value under all environments.
 )
 
 = Links
-- 20260429150009
-- 20260429150003
+- 20260429150009:Functional Patterns with Images
+- 20260429150003:Automata Snapshot
 
 #bibliography(".utility/sources.yaml")

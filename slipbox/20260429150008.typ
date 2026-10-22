@@ -15,7 +15,7 @@ $ id(x) = x $ and principal type $forall a. a -> a$.
 Prefer explicit type annotations at module boundaries.
 
 = Links
-- 20260429150007
-- 20260429150009
+- 20260429150007:C++ Value Category Notes
+- 20260429150009:Functional Patterns with Images
 
 #bibliography(".utility/sources.yaml")

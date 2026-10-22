@@ -15,7 +15,7 @@ $ U <= n(2^(1 / n)-1) $.
 For large $n$, this approaches $ln 2 approx 0.693$.
 
 = Links
-- 20260429150001
-- 20260429150006
+- 20260429150001:Algorithmic Growth Notes
+- 20260429150006:Memory Hierarchy Diagram
 
 #bibliography(".utility/sources.yaml")

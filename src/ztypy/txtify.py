@@ -45,9 +45,9 @@ def extract_links(content: str) -> list[str]:
         if stripped.startswith(("=", "#bibliography")):
             break
         if stripped.startswith("- "):
-            link_id = stripped[2:].strip()
-            if re.fullmatch(r"\d{14}", link_id):
-                links.append(link_id)
+            match = re.fullmatch(r"(\d{14}):(.+)", stripped[2:])
+            if match and match.group(2).strip():
+                links.append(match.group(1))
 
     return links
 

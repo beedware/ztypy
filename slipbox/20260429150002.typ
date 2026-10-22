@@ -15,7 +15,7 @@ Case sample:
 $ a = 2, b = 2, f(n) = n => T(n) = Theta(n log n). $
 
 = Links
-- 20260429150001
-- 20260429150003
+- 20260429150001:Algorithmic Growth Notes
+- 20260429150003:Automata Snapshot
 
 #bibliography(".utility/sources.yaml")

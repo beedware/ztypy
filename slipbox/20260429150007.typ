@@ -15,7 +15,7 @@ $ "cost"("move") << "cost"("copy") $ for resource-owning types.
 Rule of five is a practical checklist, not a law.
 
 = Links
-- 20260429150006
-- 20260429150008
+- 20260429150006:Memory Hierarchy Diagram
+- 20260429150008:Scala Type Inference Fragments
 
 #bibliography(".utility/sources.yaml")

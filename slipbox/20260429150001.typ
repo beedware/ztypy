@@ -17,7 +17,7 @@ If $T(n) = 2T(n / 2) + n$, then $T(n) in Theta(n log n)$.
 This is for maths.
 
 = Links
-- 20260429150002
-- 20260429150005
+- 20260429150002:Recurrence Cheatsheet
+- 20260429150005:Queueing and Scheduling
 
 #bibliography(".utility/sources.yaml")

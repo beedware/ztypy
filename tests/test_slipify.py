@@ -53,7 +53,23 @@ class SlipifyTests(unittest.TestCase):
             slipify.phase_2_add_titles(out, notes)
             slipify.phase_3_add_links(out, notes, {"A": ["B"], "B": []})
             content = (out / "20260101010101.typ").read_text(encoding="utf-8")
-            self.assertIn("- 20260101010102", content)
+            self.assertIn("- 20260101010102:B", content)
+
+    def test_phase_3_add_links_preserves_titles_with_colons_and_deduplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            notes = {
+                "A": slipify.Note("A", "20260101010101"),
+                "Group action: intro": slipify.Note(
+                    "Group action: intro", "20260101010102"
+                ),
+            }
+            out = Path(temp_dir)
+            slipify.phase_1_create_files(out, notes)
+            slipify.phase_3_add_links(
+                out, notes, {"A": ["Group action: intro", "Group action: intro"]}
+            )
+            content = (out / "20260101010101.typ").read_text(encoding="utf-8")
+            self.assertEqual(content.count("- 20260101010102:Group action: intro"), 1)
 
     def test_build_slip_layout_text_uses_typ_filenames(self) -> None:
         notes = {

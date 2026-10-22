@@ -14,7 +14,7 @@ $ L = { a^n b^n | n >= 0 } $ is context-free but not regular.
 Pumping lemma often starts by assuming regularity and deriving contradiction.
 
 = Links
-- 20260429150002
-- 20260429150004
+- 20260429150002:Recurrence Cheatsheet
+- 20260429150004:TCP Throughput Back-of-the-Envelope
 
 #bibliography(".utility/sources.yaml")
