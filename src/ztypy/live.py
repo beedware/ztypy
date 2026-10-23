@@ -95,12 +95,36 @@ body { background: var(--background); color: var(--text); }
   height: 2.5rem;
   padding: 0;
 }
-#tags[aria-pressed="true"] { outline: 2px solid var(--edge); outline-offset: -2px; }
-#generation-control {
+#left-controls {
   position: fixed;
   left: 1rem;
   bottom: 1rem;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+#settings {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+}
+#settings-panel {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 0.5rem);
+  border: 1px solid var(--edge);
+  border-radius: 0.25rem;
+  padding: 0.75rem;
+  background: var(--background);
+  color: var(--text);
+}
+#settings-panel[hidden] { display: none; }
+#settings-panel label { display: block; margin: 0.5rem 0; }
+#settings-panel label input { margin-right: 0.5rem; }
+#generation-control {
   padding: 0.5rem;
   background: var(--background);
 }
@@ -110,20 +134,26 @@ body { background: var(--background); color: var(--text); }
   <input id="search" type="search" aria-label="Search titles and tags" placeholder="Search titles and #tags (title_word #tag_one)">
 </div>
 <div id="graph-actions">
-  <button id="direction" type="button" aria-label="Edge directions" title="Hide arrowheads" aria-pressed="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12H22"/><path d="M18 8L22 12L18 16"/><path id="direction-slash" d="M22 2 2 22" display="none"/></svg></button>
-  <button id="backlinks" type="button" aria-label="Include backlinks" title="Hide backlinks" aria-pressed="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 18v-2a4 4 0 0 0-4-4H4"/><path d="m9 17-5-5 5-5"/><path id="backlinks-slash" d="M22 2 2 22" display="none"/></svg></button>
-  <button id="tags" type="button" aria-label="Tag nodes" title="Show tags as nodes" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z"/><path d="M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193"/><circle cx="10.5" cy="6.5" r=".5" fill="currentColor"/></svg></button>
   <button id="expand" type="button" aria-label="Show full graph" title="Show full graph" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 15 6 6"/><path d="m15 9 6-6"/><path d="M21 16v5h-5"/><path d="M21 8V3h-5"/><path d="M3 16v5h5"/><path d="m3 21 6-6"/><path d="M3 8V3h5"/><path d="M9 9 3 3"/></svg></button>
 </div>
-<span id="generation-control" hidden><label for="generations">Generations:</label><input id="generations" type="range" min="0" max="10" value="1"><output id="generation-count">1</output></span>
+<div id="left-controls">
+  <div id="settings-panel" hidden aria-label="Graph settings">
+    <strong>Graph settings</strong>
+    <label><input id="direction" type="checkbox" checked> Show arrowheads</label>
+    <label><input id="backlinks" type="checkbox" checked> Include backlinks</label>
+    <label><input id="tags" type="checkbox"> Show tags as nodes</label>
+  </div>
+  <button id="settings" type="button" aria-label="Graph settings" aria-controls="settings-panel" aria-expanded="false" title="Graph settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"/></svg></button>
+  <span id="generation-control" hidden><label for="generations">Generations:</label><input id="generations" type="range" min="0" max="10" value="1"><output id="generation-count">1</output></span>
+</div>
 <svg id="graph" role="img" aria-label="Graph"></svg>
 <script>
 const graph = document.getElementById('graph');
 const search = document.getElementById('search');
+const settingsButton = document.getElementById('settings');
+const settingsPanel = document.getElementById('settings-panel');
 const directionButton = document.getElementById('direction');
-const directionSlash = document.getElementById('direction-slash');
 const backlinksButton = document.getElementById('backlinks');
-const backlinksSlash = document.getElementById('backlinks-slash');
 const tagsButton = document.getElementById('tags');
 const expandButton = document.getElementById('expand');
 const generationControl = document.getElementById('generation-control');
@@ -224,27 +254,32 @@ function updateFocusControls() {
   generationControl.style.display = focusRoot === null ? 'none' : 'flex';
 }
 
-directionButton.addEventListener('click', () => {
-  showDirection = !showDirection;
-  directionButton.setAttribute('aria-pressed', String(showDirection));
-  directionButton.title = showDirection ? 'Hide arrowheads' : 'Show arrowheads';
-  directionSlash.setAttribute('display', showDirection ? 'none' : 'inline');
+function setSettingsOpen(open) {
+  settingsPanel.hidden = !open;
+  settingsButton.setAttribute('aria-expanded', String(open));
+}
+
+settingsButton.addEventListener('click', () => setSettingsOpen(settingsPanel.hidden));
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !settingsPanel.hidden) {
+    setSettingsOpen(false);
+    settingsButton.focus();
+  }
+});
+
+directionButton.addEventListener('change', () => {
+  showDirection = directionButton.checked;
   updateArrows();
 });
 
-backlinksButton.addEventListener('click', () => {
-  includeBacklinks = !includeBacklinks;
-  backlinksButton.setAttribute('aria-pressed', String(includeBacklinks));
-  backlinksButton.title = includeBacklinks ? 'Hide backlinks' : 'Show backlinks';
-  backlinksSlash.setAttribute('display', includeBacklinks ? 'none' : 'inline');
+backlinksButton.addEventListener('change', () => {
+  includeBacklinks = backlinksButton.checked;
   if (focusRoot !== null) filterGraph();
   else highlight();
 });
 
-tagsButton.addEventListener('click', () => {
-  showTagNodes = !showTagNodes;
-  tagsButton.setAttribute('aria-pressed', String(showTagNodes));
-  tagsButton.title = showTagNodes ? 'Hide tags as nodes' : 'Show tags as nodes';
+tagsButton.addEventListener('change', () => {
+  showTagNodes = tagsButton.checked;
   filterGraph();
   resizeGraph();
 });

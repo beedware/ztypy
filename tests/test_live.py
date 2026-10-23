@@ -16,6 +16,55 @@ from ztypy import cli, live
 
 
 class LiveTests(unittest.TestCase):
+    def test_settings_panel_and_toggles(self) -> None:
+        if not shutil.which("node"):
+            self.skipTest("Node.js is needed to run the browser settings test")
+        handlers = "function setSettingsOpen(" + live.PAGE.split(
+            "function setSettingsOpen(", 1
+        )[1].split("\nexpandButton.addEventListener(", 1)[0]
+        script = """
+function control() {
+  return {
+    hidden: true, checked: false, attributes: {}, listeners: {},
+    setAttribute(key, value) { this.attributes[key] = value; },
+    addEventListener(key, listener) { this.listeners[key] = listener; },
+    focus() { this.focused = true; },
+  };
+}
+const settingsButton = control(), settingsPanel = control();
+const directionButton = control(), backlinksButton = control(), tagsButton = control();
+const document = control();
+let showDirection = true, includeBacklinks = true, showTagNodes = false, focusRoot = null;
+let arrowsUpdated = 0, filtered = 0, highlighted = 0, resized = 0;
+function updateArrows() { arrowsUpdated++; }
+function filterGraph() { filtered++; }
+function highlight() { highlighted++; }
+function resizeGraph() { resized++; }
+""" + handlers + """
+settingsButton.listeners.click();
+if (settingsPanel.hidden || settingsButton.attributes['aria-expanded'] !== 'true') {
+  throw new Error('settings did not open');
+}
+directionButton.checked = false;
+directionButton.listeners.change();
+backlinksButton.checked = false;
+backlinksButton.listeners.change();
+tagsButton.checked = true;
+tagsButton.listeners.change();
+if (showDirection || includeBacklinks || !showTagNodes ||
+    arrowsUpdated !== 1 || highlighted !== 1 || filtered !== 1 || resized !== 1) {
+  throw new Error('settings did not apply');
+}
+document.listeners.keydown({key: 'Escape'});
+if (!settingsPanel.hidden || settingsButton.attributes['aria-expanded'] !== 'false' ||
+    !settingsButton.focused) throw new Error('Escape did not close settings');
+settingsButton.listeners.click();
+settingsButton.listeners.click();
+if (!settingsPanel.hidden) throw new Error('settings button did not toggle settings');
+"""
+        result = subprocess.run(["node"], input=script, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_tag_nodes_and_note_clicks(self) -> None:
         if not shutil.which("node"):
             self.skipTest("Node.js is needed to run the browser tag graph test")
@@ -210,7 +259,8 @@ for (const [query, expected] of cases) {
                     self.assertIn('#search { border-radius: 0; }', page)
                     self.assertIn('#graph-actions {\n  position: fixed;', page)
                     self.assertIn('place-items: center;', page)
-                    self.assertIn('left: 1rem;\n  bottom: 1rem;', page)
+                    self.assertIn('#left-controls {\n  position: fixed;\n  left: 1rem;\n  bottom: 1rem;', page)
+                    self.assertIn('bottom: calc(100% + 0.5rem);', page)
                     self.assertNotIn("unpkg.com", page)
                     for interaction in (
                         "requestAnimationFrame(animate)", "pointerdown", "wheel", "highlight()",
@@ -236,25 +286,29 @@ for (const [query, expected] of cases) {
                         data = json.load(response)
                     self.assertEqual(data["nodes"], [{"id": note.stem, "title": "<Note>", "tags": []}])
                     self.assertIn('id="search"', page)
-                    self.assertIn('id="direction" type="button"', page)
-                    self.assertIn('id="backlinks" type="button"', page)
-                    self.assertIn('id="tags" type="button"', page)
-                    self.assertIn('#tags[aria-pressed="true"]', page)
-                    self.assertIn('aria-label="Tag nodes" title="Show tags as nodes" aria-pressed="false"', page)
-                    self.assertIn('aria-label="Include backlinks" title="Hide backlinks" aria-pressed="true"', page)
-                    self.assertIn("backlinksSlash.setAttribute('display', includeBacklinks ? 'none' : 'inline')", page)
-                    self.assertIn('id="direction-slash" d="M22 2 2 22" display="none"', page)
-                    self.assertIn("directionSlash.setAttribute('display', showDirection ? 'none' : 'inline')", page)
+                    self.assertIn('id="settings" type="button" aria-label="Graph settings"', page)
+                    self.assertIn('aria-controls="settings-panel" aria-expanded="false"', page)
+                    self.assertIn('id="settings-panel" hidden', page)
+                    self.assertIn('#settings-panel[hidden] { display: none; }', page)
+                    self.assertIn('id="direction" type="checkbox" checked', page)
+                    self.assertIn('id="backlinks" type="checkbox" checked', page)
+                    self.assertIn('id="tags" type="checkbox"', page)
+                    self.assertNotIn('id="close-settings"', page)
+                    self.assertIn("showDirection = directionButton.checked", page)
+                    self.assertIn("includeBacklinks = backlinksButton.checked", page)
+                    self.assertIn("showTagNodes = tagsButton.checked", page)
+                    self.assertIn("settingsPanel.hidden = !open", page)
+                    self.assertIn("event.key === 'Escape' && !settingsPanel.hidden", page)
                     self.assertNotIn('<select id="theme">', page)
                     self.assertIn('id="expand" type="button"', page)
                     self.assertIn('d="m15 15 6 6"', page)
                     self.assertIn('id="generations" type="range" min="0" max="10" value="1"', page)
+                    self.assertLess(page.index('id="settings" type="button"'), page.index('id="generation-control"'))
                     self.assertIn('generationControl.style.alignItems = \'center\'', page)
                     self.assertIn("generationControl.style.display = focusRoot === null ? 'none' : 'flex'", page)
                     self.assertIn('id="search" type="search" aria-label="Search titles and tags"', page)
                     self.assertIn('placeholder="Search titles and #tags (title_word #tag_one)"', page)
                     self.assertIn('<title>Graph</title>', page)
-                    self.assertNotIn('id="settings"', page)
                     self.assertIn("search.style.flex = '1'", page)
                     self.assertIn("window.addEventListener('resize', resizeGraph)", page)
                     self.assertIn('window.innerHeight - graph.getBoundingClientRect().top', page)

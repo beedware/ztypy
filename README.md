@@ -36,11 +36,11 @@ example, `title_word #tag_one #tag_two` matches a title and both tags from a
 note's colon-delimited tag line (for example, `:tag_one:tag_two:`). Matching is
 case-insensitive and fuzzy (letters in order); all terms must match. Matching
 nodes show their titles while searching. Clicking a node clears the search,
-focuses its subgraph, and opens it in Neovim if it has a file. The tag icon
-at the bottom right toggles tag nodes, connected to the notes carrying those
-tags by undirected lines. Tag nodes can also be focused, but do not open a file.
-The arrow button at the bottom right toggles arrowheads (the lines stay visible);
-its icon is crossed out when arrows are off.
+focuses its subgraph, and opens it in Neovim if it has a file. The settings
+button at the bottom left opens a panel for showing tag nodes, arrowheads, and
+backlinks. Tag nodes connect to the notes carrying those tags by undirected
+lines and can be focused, but do not open a file. Close the panel with the
+settings button or Escape.
 `live` defaults to the system color scheme; use `--theme light` or
 `--theme dark` to override it:
 
@@ -51,12 +51,12 @@ uv run ztypy live slipbox --theme dark
 The light and dark graph palettes use the Modus colors from the Alacritty theme
 files; in system mode they follow your browser's color scheme. Clicking a note
 (or focusing it and pressing Enter) shows its linked children and backlinks.
-The generation slider at the bottom left
+The generation slider to the right of the settings button
 controls how many steps to follow in either direction (0–10). Click a visible
 node to focus on it instead. Focused subgraphs show all their titles without
-hover highlighting. The backlink button at the bottom right includes incoming
-links by default for both hover highlights and subgraphs; turn it off to see
-only outgoing links. Use the expand icon beside it to restore the full graph
+hover highlighting. Backlinks are included by default for both hover highlights
+and subgraphs; turn them off in settings to see only outgoing links. Use the
+expand icon at the bottom right to restore the full graph
 and normal hover behavior. The icons are bundled Lucide SVGs; see
 `src/ztypy/LUCIDE-LICENSE.txt`.
 
